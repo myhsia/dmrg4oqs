@@ -43,7 +43,7 @@ All code is under `source/`, the working directory for the drivers (paths such a
 ## Shared pieces (this repository owns them)
 
 `source/config/` and `source/library/{qutils,fsutils,pltools}.py` live **here** and are the single
-source of truth.  The private companion memory-kernel repository symlinks them locally (gitignored)
+source of truth.  The private companion `mkct-oqs` repository symlinks them locally (gitignored)
 and checks this repository out anonymously in its CI to copy them; no token is needed because this
 repository is public.
 

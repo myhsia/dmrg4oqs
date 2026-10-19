@@ -17,7 +17,7 @@ cross-check a companion memory-kernel project:
 This repository is the single source of truth for the **non-sensitive shared
 pieces** as well: the quantum primitives (`qutils.py`), the config/data IO
 helpers (`fsutils.py`), the plotting grid (`pltools.py`), and the parameter
-files under `source/config/`.  A private companion repository (the
+files under `source/config/`.  The private companion `mkct-oqs` repository (the
 memory-kernel code) links to these rather than duplicating them.
 
 Bath and model
