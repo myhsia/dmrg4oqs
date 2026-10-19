@@ -1,7 +1,7 @@
 # %%
 # 1. Requirements
 import mpmath as mp
-mp.dps = 31
+mp.mp.dps = 31
 import numpy as np
 import os, sys
 sys.path.append(os.path.join(os.path.dirname(__file__), "./library"))
