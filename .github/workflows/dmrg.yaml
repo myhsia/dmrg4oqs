@@ -55,6 +55,18 @@ on:
         description: "Optional output-tag suffix (default: empty -> dmrg_<case>)"
         required: false
         default: ""
+      t0:
+        description: "Segment start time (empty: 0)"
+        required: false
+        default: ""
+      t1:
+        description: "Segment end time (empty: the config tf)"
+        required: false
+        default: ""
+      state:
+        description: "Checkpoint file (empty: none; resume if it exists)"
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -125,12 +137,16 @@ jobs:
         working-directory: source
         run: |
           conda activate dmrg
+          extra=""
+          [ -n "${{ inputs.t0 }}" ] && extra="$extra -t0 ${{ inputs.t0 }}"
+          [ -n "${{ inputs.t1 }}" ] && extra="$extra -t1 ${{ inputs.t1 }}"
+          [ -n "${{ inputs.state }}" ] && extra="$extra -state '${{ inputs.state }}'"
           python dmrg.py "${{ matrix.config }}" -case "${{ matrix.case }}" \
             -N ${{ inputs.N }} -nmax ${{ inputs.nmax }} -chi ${{ inputs.chi }} \
             -dt ${{ inputs.dt }} -dtau ${{ inputs.dtau }} \
             -wmax_factor ${{ inputs.wmax_factor }} \
             -geometry "${{ inputs.geometry }}" \
-            -engine "${{ inputs.engine }}" -tag "${{ inputs.tag }}"
+            -engine "${{ inputs.engine }}" -tag "${{ inputs.tag }}" $extra
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v7

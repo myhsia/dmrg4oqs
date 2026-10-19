@@ -20,6 +20,7 @@ The quartic (anharmonic) term is nonlocal in the chain basis; it is included
 as a *local* chain anharmonicity ``(a^2 Omega_k / 4) q_k^4`` as an
 approximation (the chain coordinates are the effective normal modes).
 """
+import os, pickle
 import numpy as np
 
 from tenpy.networks.site import SpinHalfSite
@@ -179,18 +180,22 @@ def prepare_thermal(lat, model_prep, beta, chi=64, dtau=0.01, N=1, nmax=6):
 
 def run_observables(epsilon, Delta, omega, c, beta, t, quantum=True, anharm2=0.0,
                     nmax=6, chi=64, dt=None, dtau=0.01, verbose=False,
-                    engine="twosite", expansion_dim=16):
+                    engine="twosite", expansion_dim=16,
+                    t0=None, state=None, save_state=None, normalize_cmu=None):
     """Chain-mapped observables (same dict as :func:`dmrg.tdmrg.run_observables`).
 
     ``engine`` selects the time-evolution engine: ``"twosite"`` (default) uses
     two-site TDVP; ``"onesite"`` uses single-site TDVP with Krylov subspace
-    expansion (cheaper, ~3x faster here, at the cost of some accuracy).
+    expansion (cheaper, ~3x faster here, but numerically unreliable).
+
+    Segment support: if ``state`` exists it is a pickled ``{"psi", "time"}``
+    checkpoint (the thermal preparation and the initial states are skipped);
+    at the end the two MPS are written back to ``save_state``.
+    ``normalize_cmu`` defaults to ``t0 == 0``.
     """
     t = np.asarray(t, dtype=float)
     lat, model, model_prep, N = build_models(epsilon, Delta, omega, c, nmax=nmax,
                                              anharm2=anharm2)
-    bath = prepare_thermal(lat, model_prep, beta, chi=chi, dtau=dtau,
-                           N=N, nmax=nmax)
 
     dt = float(t[1] - t[0]) if dt is None else float(dt)
     if engine == "onesite":
@@ -199,18 +204,30 @@ def run_observables(epsilon, Delta, omega, c, beta, t, quantum=True, anharm2=0.0
     else:
         Engine = TwoSiteTDVPEngine
         lanczos = {}
+
+    if state and os.path.exists(state):
+        with open(state, "rb") as f:
+            payload = pickle.load(f)
+        psi = payload["psi"]
+        t0 = payload["time"]
+    else:
+        bath = prepare_thermal(lat, model_prep, beta, chi=chi, dtau=dtau,
+                               N=N, nmax=nmax)
+        psi = {}
+        for b in (0, 1):
+            p = bath.copy()
+            if b == 1:
+                p.apply_local_op(0, 'Sigmax', unitary=True)
+            psi[b] = p
+    if t0 is None:
+        t0 = float(t[0])
+    if normalize_cmu is None:
+        normalize_cmu = (t0 == 0.0)
     opts = {'dt': dt, 'N_steps': 1, 'preserve_norm': True,
             'trunc_params': {'chi_max': chi, 'svd_min': 1e-13},
-            'start_time': 0.0, 'max_N_sites_per_ring': lat.N_sites,
+            'start_time': t0, 'max_N_sites_per_ring': lat.N_sites,
             'lanczos_params': lanczos}
-    psi = {}
-    eng = {}
-    for b in (0, 1):
-        p = bath.copy()
-        if b == 1:
-            p.apply_local_op(0, 'Sigmax', unitary=True)
-        psi[b] = p
-        eng[b] = Engine(psi[b], model, opts)
+    eng = {b: Engine(psi[b], model, opts) for b in (0, 1)}
 
     nT = len(t)
     pop = np.empty((nT, 2))
@@ -239,6 +256,9 @@ def run_observables(epsilon, Delta, omega, c, beta, t, quantum=True, anharm2=0.0
         if it < nT - 1:
             for b in (0, 1):
                 eng[b].run()
-    if cmu[0] != 0:
+    if normalize_cmu and cmu[0] != 0:
         cmu = cmu / cmu[0]
+    if save_state:
+        with open(save_state, "wb") as f:
+            pickle.dump({"psi": psi, "time": float(t[-1] + dt)}, f)
     return {'pop': pop, 'cohe_p': cop, 'cohe_m': com, 'Cmu': cmu, 'Cx': cx}
