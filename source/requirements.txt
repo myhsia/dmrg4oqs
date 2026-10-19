@@ -1,6 +1,7 @@
 # Reference dynamics (HEOM + MPS/tDMRG)
 matplotlib
 mpmath
+numba
 numpy
 physics-tenpy
 pyyaml
