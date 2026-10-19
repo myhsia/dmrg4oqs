@@ -20,10 +20,25 @@ All code is under `source/`, the working directory for the drivers (paths such a
   (`t`, `y`, `identifier`).
 - `source/plot_dmrg.py` — writes `output/figures/dmrg@<prefix>.pdf` (legend bar, combined body,
   coherence body); overlays `*_heom.npz` when present.
+- `source/heom.py` — HEOM reference dynamics (qutip `HEOMSolver` for linear coupling; the extended
+  HEOM/DEOM in `library/extended_heom.py` for quadratic coupling), writing
+  `output/data/<prefix>/{pop,cohe,cohem,corr,xorr}_heom.npz`.
+- `source/library/extended_heom.py` — extended HEOM for polynomial coupling.
 - `source/library/dmrg/` — `chain.py` (star→Lanczos chain, two-site TDVP, thermofield-double bath),
   `model.py` (star MPS, coupling MPO, per-mode squeezed classical state), `tdmrg.py` (shared
   observable extraction), `validation.py` (regression suite).
 - `source/environment.yaml`, `source/requirements.txt` — the `dmrg` conda environment.
+
+## Method
+
+- **HEOM.**  Linear coupling uses qutip's `OhmicEnvironment` + `HEOMSolver` (ESPIRA-I fit); quadratic
+  coupling uses the extended HEOM/DEOM (`extended_heom.py`).  `heom.py` runs the four cases for each
+  config in its `RUNLIST` and writes the five `*_heom.npz` files.
+- **MPS / tDMRG.**  The star-shaped Ohmic bath (shared Gauss-Legendre discretization) is rotated to a
+  one-dimensional chain by a Lanczos tridiagonalization (coupling vector as seed), so the system
+  couples only to the first chain site; the finite-temperature bath is a thermofield-double
+  purification prepared by imaginary-time TDVP.  All five observables follow from two propagations
+  `|phi_b(t)> = U|b>|TFD>` (b = 0, 1), because every time-zero system operator is rank one.
 
 ## Shared pieces (this repository owns them)
 
@@ -49,8 +64,10 @@ repository is public.
 
 ```bash
 cd source
-python dmrg.py A-base_line && python plot_dmrg.py A-base_line
-python library/dmrg/validation.py
+python heom.py                             # HEOM reference -> output/data/<prefix>/
+python dmrg.py A-base_line                 # four cases -> output/data/A-base_line/
+python plot_dmrg.py A-base_line            # -> output/figures/dmrg@A-base_line.pdf
+python library/dmrg/validation.py          # regression suite
 ```
 
 ## CI
