@@ -25,11 +25,12 @@ All code is under `source/`, the working directory for the drivers (paths such a
   observable extraction), `validation.py` (regression suite).
 - `source/environment.yaml`, `source/requirements.txt` — the `dmrg` conda environment.
 
-## Shared files (private companion repository)
+## Shared pieces (this repository owns them)
 
-`source/config/` and `source/library/{qutils,fsutils,pltools}.py` are **not** in this repository.
-Locally they are symlinked by `tools/setup_symlinks.sh` (gitignored); CI checks them out from the
-private companion repo with the secret `MKCT_REPO_TOKEN` and copies them into `source/`.
+`source/config/` and `source/library/{qutils,fsutils,pltools}.py` live **here** and are the single
+source of truth.  The private companion memory-kernel repository symlinks them locally (gitignored)
+and checks this repository out anonymously in its CI to copy them; no token is needed because this
+repository is public.
 
 ## Conventions
 
@@ -56,11 +57,11 @@ python library/dmrg/validation.py
 
 ## CI
 
-- `.github/workflows/ci.yaml` — syntax check + regression suite.
+- `.github/workflows/ci.yaml` — syntax check, regression suite, and HEOM import.
 - `.github/workflows/dmrg.yaml` — manual matrix over `<config> × <case>`; artifacts
   `dmrg-<config>-<case>`.  Retrieve with `gh run download <id> -D <tmp>`.
 
-Both need `secrets.MKCT_REPO_TOKEN` to fetch the shared files.
+No token is needed: this repository is public and self-contained.
 
 ## Git style
 

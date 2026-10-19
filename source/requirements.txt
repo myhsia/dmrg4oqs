@@ -1,6 +1,8 @@
-# MPS / tDMRG reference dynamics
+# Reference dynamics (HEOM + MPS/tDMRG)
 matplotlib
+mpmath
 numpy
 physics-tenpy
 pyyaml
+qutip
 scipy

@@ -11,10 +11,5 @@
 /**/__pycache__/
 /**/output/
 
-# Shared files that live in the private mkct repository and are symlinked
-# locally (see tools/setup_symlinks.sh); CI materializes them from there.
-/source/config
-/source/library/qutils.py
-/source/library/fsutils.py
-/source/library/pltools.py
+# Local OpenCode skills (private companion repository)
 /.opencode
