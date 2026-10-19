@@ -33,6 +33,10 @@ on:
         description: "Imaginary-time step (thermal-state preparation)"
         required: false
         default: "0.02"
+      wmax_factor:
+        description: "Quadrature cutoff in units of wC (bath recurrence at 2*pi*N/(wmax_factor*wC))"
+        required: false
+        default: "10"
       engine:
         description: "TDVP engine (two-site only; onesite is numerically wrong)"
         type: choice
@@ -124,6 +128,7 @@ jobs:
           python dmrg.py "${{ matrix.config }}" -case "${{ matrix.case }}" \
             -N ${{ inputs.N }} -nmax ${{ inputs.nmax }} -chi ${{ inputs.chi }} \
             -dt ${{ inputs.dt }} -dtau ${{ inputs.dtau }} \
+            -wmax_factor ${{ inputs.wmax_factor }} \
             -geometry "${{ inputs.geometry }}" \
             -engine "${{ inputs.engine }}" -tag "${{ inputs.tag }}"
 
