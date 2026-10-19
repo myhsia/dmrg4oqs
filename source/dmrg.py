@@ -59,13 +59,20 @@ def _parse_args():
                         help = "Quadrature cutoff, in units of wC")
     parser.add_argument("-tag", type = str, default = "",
                         help = "Optional suffix appended to the output tag (dmrg_<case>_<tag>)")
+    parser.add_argument("-t0", type = float, default = None,
+                        help = "Segment start time (default: 0)")
+    parser.add_argument("-t1", type = float, default = None,
+                        help = "Segment end time (default: the config tf)")
+    parser.add_argument("-state", type = str, default = "",
+                        help = "Checkpoint file: resume if it exists, save at the end")
     return parser.parse_args()
 
 
 def main(prefix: str, quantum: bool = True, anharm: bool = False,
          N: int = 20, nmax: int = 6, chi: int = 128, dt: float = 0.02,
          wmax_factor: float = 10.0, geometry: str = "chain", dtau: float = 0.02,
-         engine: str = "twosite", tag_suffix: str = ""):
+         engine: str = "twosite", tag_suffix: str = "",
+         t0: float = None, t1: float = None, state: str = ""):
     # 3. Parameters (physical values; ``scale`` is a numerical device only)
     params = load_config(prefix)
     epsilon= params["epsilon"]
@@ -76,7 +83,9 @@ def main(prefix: str, quantum: bool = True, anharm: bool = False,
     a = float(params["anharmon"]) * np.sqrt(7.0 / 6.0) if anharm else 0.0
     xlims = parse_xlims(params["xlims"], reorder = True)
     tf    = xlims[0][1]
-    t     = np.linspace(0.0, tf, int(tf / dt) + 1)
+    t0    = 0.0 if t0 is None else float(t0)
+    t1    = tf if t1 is None else float(t1)
+    t     = np.linspace(t0, t1, int(round((t1 - t0) / dt)) + 1)
     omega, c = ohmic_modes(lambd, wC, N = N, wmax_factor = wmax_factor)
 
     case = _case_name(quantum, anharm)
@@ -93,11 +102,15 @@ def main(prefix: str, quantum: bool = True, anharm: bool = False,
         res = chain.run_observables(epsilon, Delta, omega, c, beta, t,
                                     quantum = quantum, anharm2 = a ** 2,
                                     nmax = nmax, chi = chi, dt = dt, dtau = dtau,
-                                    engine = engine)
+                                    engine = engine, t0 = t0,
+                                    state = state or None,
+                                    save_state = state or None)
     else:
         res = run_observables_star(epsilon, Delta, omega, c, beta, t,
                                    quantum = quantum, anharm2 = a ** 2,
-                                   nmax = nmax, chi = chi, dt = dt)
+                                   nmax = nmax, chi = chi, dt = dt, t0 = t0,
+                                   state = state or None,
+                                   save_state = state or None)
 
     # 5. Save to npz
     save_time(t, res["pop"],
@@ -125,7 +138,8 @@ def run(prefix: str, cases = CASES, N: int = 20, nmax: int = 6,
         quantum, anharm = _CASE_MATRIX[case]
         main(prefix, quantum = quantum, anharm = anharm, N = N, nmax = nmax,
              chi = chi, dt = dt, wmax_factor = wmax_factor, geometry = geometry,
-             dtau = dtau, engine = engine, tag_suffix = tag_suffix)
+             dtau = dtau, engine = engine, tag_suffix = tag_suffix,
+             t0 = t0, t1 = t1, state = state)
 
 
 if __name__ == "__main__":
@@ -135,6 +149,6 @@ if __name__ == "__main__":
         run(prefix, cases = cases, N = args.N, nmax = args.nmax,
             chi = args.chi, dt = args.dt, wmax_factor = args.wmax_factor,
             geometry = args.geometry, dtau = args.dtau, engine = args.engine,
-            tag_suffix = args.tag)
+            tag_suffix = args.tag, t0 = args.t0, t1 = args.t1, state = args.state)
 
 # %%
