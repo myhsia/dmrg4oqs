@@ -133,6 +133,16 @@ jobs:
       - name: Set up the dmrg environment
         uses: ./.github/actions/dmrg-env
 
+      - name: Restore the segment checkpoint
+        if: inputs.t0 != ''
+        uses: actions/cache@v6
+        with:
+          path: source/output/state
+          key: state-${{ matrix.config }}-${{ matrix.case }}-${{ inputs.t1 }}
+          restore-keys: |
+            state-${{ matrix.config }}-${{ matrix.case }}-
+          save-always: true
+
       - name: Run tDMRG
         working-directory: source
         run: |
@@ -140,7 +150,8 @@ jobs:
           extra=""
           [ -n "${{ inputs.t0 }}" ] && extra="$extra -t0 ${{ inputs.t0 }}"
           [ -n "${{ inputs.t1 }}" ] && extra="$extra -t1 ${{ inputs.t1 }}"
-          [ -n "${{ inputs.state }}" ] && extra="$extra -state '${{ inputs.state }}'"
+          if [ -n "${{ inputs.state }}" ]; then extra="$extra -state '${{ inputs.state }}'";
+          elif [ -n "${{ inputs.t0 }}" ]; then extra="$extra -state 'output/state/${{ matrix.case }}.pkl'"; fi
           python dmrg.py "${{ matrix.config }}" -case "${{ matrix.case }}" \
             -N ${{ inputs.N }} -nmax ${{ inputs.nmax }} -chi ${{ inputs.chi }} \
             -dt ${{ inputs.dt }} -dtau ${{ inputs.dtau }} \
