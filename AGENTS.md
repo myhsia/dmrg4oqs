@@ -43,9 +43,7 @@ repository is public.
   (`-engine onesite`) is numerically wrong (it oscillates/collapses) — do not use it.
 - **Bath modes**: the discrete bath correlation recurs at `t ≈ 2πN/w_max`, so matching the continuum
   over `t ≤ 12` needs `N ≳ 80`; `nmax ≥ 8`, `chi ≳ 64` and `dt ≲ 0.3` are needed too.
-- Coding style: spaces around `=` in keyword arguments and decorator parameters, one parameter per
-  line in multi-line signatures, `) -> type` on the closing line, and a `# %%` marker at the top of a
-  module.
+- Coding style: see the maintainer's shared `repo-rules` skill.
 
 ## Workflows
 
@@ -65,6 +63,5 @@ No token is needed: this repository is public and self-contained.
 
 ## Git style
 
-Commits follow `type(scope): short summary` (`feat`, `fix`, `tune`, `refactor`, `docs`, `chore`),
-imperative and concise.  Only commit when explicitly requested; never commit secrets or `output/`
-artifacts.
+See the maintainer's shared `repo-rules` skill (`type(scope): summary`; commit only when asked;
+never commit secrets or `output/`).
