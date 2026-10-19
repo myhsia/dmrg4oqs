@@ -1,0 +1,151 @@
+name: DMRG
+
+# Manual, matrix-parallel tDMRG runs.  One job per (config x case); each uploads
+# a `dmrg-<config>-<case>` artifact.
+on:
+  workflow_dispatch:
+    inputs:
+      configs:
+        description: "Space-separated config prefixes"
+        required: false
+        default: "A-base_line"
+      cases:
+        description: "Space-separated cases (qhm qah chm cah)"
+        required: false
+        default: "qhm qah chm cah"
+      N:
+        description: "Number of bath modes"
+        required: false
+        default: "80"
+      nmax:
+        description: "Fock-space truncation per chain site"
+        required: false
+        default: "8"
+      chi:
+        description: "Maximum MPS bond dimension"
+        required: false
+        default: "64"
+      dt:
+        description: "Real-time step"
+        required: false
+        default: "0.3"
+      dtau:
+        description: "Imaginary-time step (thermal-state preparation)"
+        required: false
+        default: "0.02"
+      engine:
+        description: "TDVP engine (two-site only; onesite is numerically wrong)"
+        type: choice
+        options:
+          - twosite
+        default: twosite
+      geometry:
+        description: "Bath geometry (auto: chain for quantum, star for classical)"
+        type: choice
+        options:
+          - auto
+          - chain
+          - star
+        default: auto
+      tag:
+        description: "Optional output-tag suffix (default: empty -> dmrg_<case>)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dmrg-${{ github.ref }}-${{ inputs.geometry }}-${{ inputs.N }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: Plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - name: Build the run matrix
+        id: plan
+        shell: bash
+        run: |
+          configs="${{ inputs.configs }}"; [ -z "$configs" ] && configs="A-base_line"
+          cases="${{ inputs.cases }}";     [ -z "$cases" ] && cases="qhm qah chm cah"
+          include=""
+          for c in $configs; do
+            for k in $cases; do
+              sep=""; [ -n "$include" ] && sep=","
+              include="${include}${sep}{\"config\":\"${c}\",\"case\":\"${k}\"}"
+            done
+          done
+          echo "matrix={\"include\":[${include}]}" >> "$GITHUB_OUTPUT"
+          echo "matrix={\"include\":[${include}]}"
+
+  build_env:
+    name: Build environment (conda)
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up the dmrg environment
+        uses: ./.github/actions/dmrg-env
+        with:
+          build: "true"
+
+  run:
+    name: dmrg (${{ matrix.config }} / ${{ matrix.case }})
+    needs: [plan, build_env]
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    defaults:
+      run:
+        shell: bash -el {0}
+    env:
+      MPLBACKEND: Agg
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Checkout shared files
+        uses: actions/checkout@v7
+        with:
+          repository: myhsia/mkct4sys-bath
+          token: ${{ secrets.MKCT_REPO_TOKEN }}
+          path: _shared
+
+      - name: Copy shared files into source
+        run: |
+          mkdir -p source/config source/library
+          cp _shared/source/config/*.yaml source/config/
+          cp _shared/source/library/qutils.py \
+             _shared/source/library/fsutils.py \
+             _shared/source/library/pltools.py source/library/
+
+      - name: Set up the dmrg environment
+        uses: ./.github/actions/dmrg-env
+
+      - name: Run tDMRG
+        working-directory: source
+        run: |
+          conda activate dmrg
+          python dmrg.py "${{ matrix.config }}" -case "${{ matrix.case }}" \
+            -N ${{ inputs.N }} -nmax ${{ inputs.nmax }} -chi ${{ inputs.chi }} \
+            -dt ${{ inputs.dt }} -dtau ${{ inputs.dtau }} \
+            -geometry "${{ inputs.geometry }}" \
+            -engine "${{ inputs.engine }}" -tag "${{ inputs.tag }}"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: dmrg-${{ matrix.config }}-${{ matrix.case }}
+          path: source/output/data/${{ matrix.config }}
+          if-no-files-found: error
+          retention-days: 30

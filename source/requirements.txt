@@ -1,0 +1,6 @@
+# MPS / tDMRG reference dynamics
+matplotlib
+numpy
+physics-tenpy
+pyyaml
+scipy

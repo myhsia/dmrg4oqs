@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "**/*.md"
+  pull_request:
+    paths-ignore:
+      - "**/*.md"
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  syntax:
+    name: Syntax (compileall)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.x"
+
+      - name: Byte-compile the sources
+        run: python -m compileall -q -x '(^|[/\\])output([/\\]|$)' source
+
+  validation:
+    name: tDMRG regression suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash -el {0}
+    env:
+      MPLBACKEND: Agg
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      # The shared primitives (qutils/fsutils/pltools, config) live in the
+      # private companion repository; fetch them with a fine-grained token.
+      - name: Checkout shared files
+        uses: actions/checkout@v7
+        with:
+          repository: myhsia/mkct4sys-bath
+          token: ${{ secrets.MKCT_REPO_TOKEN }}
+          path: _shared
+
+      - name: Copy shared files into source
+        run: |
+          mkdir -p source/config source/library
+          cp _shared/source/config/*.yaml source/config/
+          cp _shared/source/library/qutils.py \
+             _shared/source/library/fsutils.py \
+             _shared/source/library/pltools.py source/library/
+
+      - name: Set up the dmrg environment
+        uses: ./.github/actions/dmrg-env
+        with:
+          build: "true"
+
+      - name: tDMRG regression suite
+        working-directory: source
+        run: |
+          conda activate dmrg
+          python library/dmrg/validation.py
