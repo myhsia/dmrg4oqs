@@ -1,25 +1,38 @@
-[![CI](https://github.com/myhsia/dmrg-spin_boson/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/myhsia/dmrg-spin_boson/actions)
-[![License](https://img.shields.io/github/license/myhsia/dmrg-spin_boson)](LICENSE)
+[![CI](https://github.com/myhsia/heomXdmrg-spin_boson/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/myhsia/heomXdmrg-spin_boson/actions)
+[![License](https://img.shields.io/github/license/myhsia/heomXdmrg-spin_boson)](LICENSE)
 
-MPS / tDMRG reference dynamics for the spin-boson system
-========================================================
+Reference dynamics for the spin-boson system: HEOM and MPS/tDMRG
+===============================================================
 
-A temporary, self-contained wavefunction reference for the spin-boson model:
-the joint system-plus-bath state is time-evolved as a **matrix product state**
-(two-site TDVP) and reduced to populations, coherences, and auto-/cross-
-correlation functions.  It is used to cross-check the numerically exact
-hierarchy and semiclassical references of a companion project; it is not itself
-part of any publication.
+Two independent numerical references for the spin-boson model, used to
+cross-check a companion memory-kernel project:
 
-The bath is set up in the **star** geometry from a Gauss-Legendre discretization
-of the Ohmic spectral density
+- **HEOM** — hierarchical equations of motion for linear coupling (`qutip`'s
+  `OhmicEnvironment` + `HEOMSolver`) and an extended hierarchy for quadratic
+  coupling (`extended_heom.py`).
+- **MPS / tDMRG** — the joint system-plus-bath state evolved as a matrix
+  product state (two-site TDVP) and reduced to populations, coherences, and
+  auto-/cross-correlation functions.
+
+This repository is the single source of truth for the **non-sensitive shared
+pieces** as well: the quantum primitives (`qutils.py`), the config/data IO
+helpers (`fsutils.py`), the plotting grid (`pltools.py`), and the parameter
+files under `source/config/`.  A private companion repository (the
+memory-kernel code) links to these rather than duplicating them.
+
+Bath and model
+--------------
+
+The Ohmic spectral density is
 
     J(w) = pi * lambd / wC * w * exp(-w / wC)
 
-and, for the quantum cases, rotated to a **one-dimensional chain** by a Lanczos
-tridiagonalization so that the system couples only to the first site.  The
-finite-temperature bath is a thermofield-double purification prepared by
-imaginary-time TDVP.
+discretized with Gauss-Legendre modes.  For tDMRG the quantum modes are rotated
+to a one-dimensional chain by a Lanczos tridiagonalization and the
+finite-temperature bath is a thermofield-double purification.  The four bath
+cases are `QHM` (quantum harmonic), `QAH` (quantum anharmonic), `CHM` (classical
+harmonic) and `CAH` (classical anharmonic); the classical cases use a per-mode
+squeezed thermal state (a classical bath is not a quantum Gibbs state).
 
 Layout
 ------
@@ -28,59 +41,49 @@ All code lives under `source/`, the working directory for every driver (paths
 such as `./config` and `./output` are relative to it):
 
     source/
-      dmrg.py                    # driver (one config, four bath cases)
+      heom.py                    # HEOM / extended-HEOM reference dynamics
+      dmrg.py                    # MPS/tDMRG reference dynamics
       plot_dmrg.py               # dmrg@<prefix>.pdf figures
       environment.yaml           # conda environment (`dmrg`)
       requirements.txt
-      library/dmrg/              # MPS/tDMRG implementation + regression suite
+      config/                    # parameter files (shared, non-sensitive)
+      library/
+        extended_heom.py         # extended HEOM for quadratic coupling
+        qutils.py fsutils.py pltools.py
+        dmrg/                    # MPS/tDMRG implementation + regression suite
 
-The conda environment is created from `source/environment.yaml`:
+Install
+-------
 
     conda env create -f source/environment.yaml
     conda activate dmrg
 
-Shared primitives
------------------
-
-This repository keeps only the DMRG-specific code.  A few helpers (`qutils.py`,
-`fsutils.py`, `pltools.py`) and the parameter files (`source/config/`) live in a
-private companion repository and are brought in two ways:
-
-- **Locally** they are symlinked by `tools/setup_symlinks.sh` (the links are
-  gitignored, so the DMRG code edits them in place while developing);
-- **in CI** they are checked out from the private repository with a fine-grained
-  token stored as the secret `MKCT_REPO_TOKEN` (contents: read) and copied into
-  `source/` before the run.  Without that secret the `validation` and `dmrg`
-  workflows cannot fetch them.
+(`qutip` has no wheel on the pinned interpreter yet, so it is built from source
+on the first environment creation.)
 
 Run
 ---
 
-From `source/` with the `dmrg` environment active:
+From `source/` with the environment active:
 
 ```bash
+python heom.py                             # HEOM reference -> output/data/<prefix>/
 python dmrg.py A-base_line                 # four cases -> output/data/A-base_line/
 python plot_dmrg.py A-base_line            # -> output/figures/dmrg@A-base_line.pdf
 python library/dmrg/validation.py          # regression suite (ED references)
 ```
 
 `dmrg.py` flags: `-case qhm|qah|chm|cah|all`, `-geometry auto|chain|star`,
-`-N`, `-nmax`, `-chi`, `-dt`, `-dtau`, `-wmax_factor`, `-tag`.
-
-The four bath cases are `QHM` (quantum harmonic), `QAH` (quantum anharmonic),
-`CHM` (classical harmonic) and `CAH` (classical anharmonic).  The classical
-cases use a per-mode squeezed thermal state matching the classical variance,
-because a classical bath is not a quantum Gibbs state.
+`-N`, `-nmax`, `-chi`, `-dt`, `-dtau`, `-wmax_factor`, `-tag`.  Use the default
+two-site engine (the single-site variant is numerically wrong).
 
 Continuous integration
 ----------------------
 
-- `.github/workflows/ci.yaml` — byte-compile check and the regression suite.
+- `.github/workflows/ci.yaml` — byte-compile, the tDMRG regression suite, and a
+  HEOM import check.
 - `.github/workflows/dmrg.yaml` — a manual (`workflow_dispatch`) matrix over
   `<config> × <case>`; each job uploads a `dmrg-<config>-<case>` artifact.
-
-Because the shared primitives live in a private repository, both workflows
-check it out with `secrets.MKCT_REPO_TOKEN`.
 
 License
 -------

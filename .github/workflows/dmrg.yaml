@@ -114,21 +114,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Checkout shared files
-        uses: actions/checkout@v7
-        with:
-          repository: myhsia/mkct4sys-bath
-          token: ${{ secrets.MKCT_REPO_TOKEN }}
-          path: _shared
-
-      - name: Copy shared files into source
-        run: |
-          mkdir -p source/config source/library
-          cp _shared/source/config/*.yaml source/config/
-          cp _shared/source/library/qutils.py \
-             _shared/source/library/fsutils.py \
-             _shared/source/library/pltools.py source/library/
-
       - name: Set up the dmrg environment
         uses: ./.github/actions/dmrg-env
 

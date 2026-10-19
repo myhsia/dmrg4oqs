@@ -35,8 +35,22 @@ jobs:
       - name: Byte-compile the sources
         run: python -m compileall -q -x '(^|[/\\])output([/\\]|$)' source
 
+  build_env:
+    name: Build environment (conda)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up the dmrg environment
+        uses: ./.github/actions/dmrg-env
+        with:
+          build: "true"
+
   validation:
     name: tDMRG regression suite
+    needs: build_env
     runs-on: ubuntu-latest
     timeout-minutes: 30
     defaults:
@@ -48,30 +62,32 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
-      # The shared primitives (qutils/fsutils/pltools, config) live in the
-      # private companion repository; fetch them with a fine-grained token.
-      - name: Checkout shared files
-        uses: actions/checkout@v7
-        with:
-          repository: myhsia/mkct4sys-bath
-          token: ${{ secrets.MKCT_REPO_TOKEN }}
-          path: _shared
-
-      - name: Copy shared files into source
-        run: |
-          mkdir -p source/config source/library
-          cp _shared/source/config/*.yaml source/config/
-          cp _shared/source/library/qutils.py \
-             _shared/source/library/fsutils.py \
-             _shared/source/library/pltools.py source/library/
-
       - name: Set up the dmrg environment
         uses: ./.github/actions/dmrg-env
-        with:
-          build: "true"
 
       - name: tDMRG regression suite
         working-directory: source
         run: |
           conda activate dmrg
           python library/dmrg/validation.py
+
+  heom:
+    name: HEOM import
+    needs: build_env
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up the dmrg environment
+        uses: ./.github/actions/dmrg-env
+
+      - name: Import HEOM
+        working-directory: source
+        run: |
+          conda activate dmrg
+          python -c "import heom; print('heom import OK')"
