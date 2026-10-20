@@ -122,32 +122,33 @@ def load_group(path):
     return series, meta
 
 
-def moments_filename(case: str, projection: str = "matrix") -> str:
-    """Canonical moments data filename ``moments_<case>.{mat,scl}.npz``,
+def moments_filename(projection: str = "matrix") -> str:
+    """Canonical moments archive ``moments.{mat,scl}.npz`` (one array per case),
     where ``projection`` is ``"matrix"`` (``mat``) or ``"scalar"`` (``scl``).
     """
-    return f"moments_{case}.{'scl' if projection == 'scalar' else 'mat'}.npz"
+    return f"moments.{'scl' if projection == 'scalar' else 'mat'}.npz"
 
 
-def save_moments(path, arr) -> None:
-    """Save a moments array under the ``moments`` key of an ``.npz`` archive.
+def save_moments(path, series) -> None:
+    """Save one moments array per case, each under its case name.
 
-    ``arr`` may be a scalar ``(n_moments,)`` or matrix ``(n_moments, d, d)``
-    complex array; the native shape is preserved (no flattening).
+    ``series`` maps a case (``qhm``/``qah``/``chm``/``cah``) to its array; a
+    scalar ``(n_moments,)`` or matrix ``(n_moments, d, d)`` complex array keeps
+    its native shape (no flattening).
     """
     filepath = Path(path)
     ensure_dir(filepath.parent)
-    np.savez(filepath, moments = np.asarray(arr))
+    np.savez(filepath, **{str(k): np.asarray(v) for k, v in series.items()})
 
 
-def load_moments(path) -> np.ndarray:
-    """Load a moments array from an ``.npz`` archive (key ``moments``).
+def load_moments(path) -> dict:
+    """Load a moments archive as ``{case: array}``.
 
-    Returns the native shape: ``(n_moments, d, d)`` for the matrix projection
-    or ``(n_moments,)`` for the scalar projection.
+    Each array keeps its native shape: ``(n_moments, d, d)`` for the matrix
+    projection or ``(n_moments,)`` for the scalar projection.
     """
     with np.load(path) as f:
-        return f["moments"]
+        return {k: f[k] for k in f.files}
 
 
 def tab_str(s, N = 80, char = '=', border = '!'):
