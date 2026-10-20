@@ -48,7 +48,8 @@ All code is under `source/`, the working directory for the drivers (paths such a
 `source/config/` and `source/library/{qutils,fsutils,pltools}.py` live **here** and are the single
 source of truth.  The private companion `mkct-oqs` repository symlinks them locally (gitignored)
 and checks this repository out anonymously in its CI to copy them; no token is needed because this
-repository is public.
+repository is public.  `fsutils.py` also carries the grouped-archive writer/loader
+(`save_group`/`load_group`) used by the companion's MKCT results.
 
 ## Conventions
 
