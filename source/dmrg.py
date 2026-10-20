@@ -133,7 +133,8 @@ RUNLIST = [
 def run(prefix: str, cases = CASES, N: int = 20, nmax: int = 6,
         chi: int = 128, dt: float = 0.02, wmax_factor: float = 10.0,
         geometry: str = "auto", dtau: float = 0.02, engine: str = "twosite",
-        tag_suffix: str = ""):
+        tag_suffix: str = "", t0: float = None, t1: float = None,
+        state: str = ""):
     for case in cases:
         quantum, anharm = _CASE_MATRIX[case]
         main(prefix, quantum = quantum, anharm = anharm, N = N, nmax = nmax,
