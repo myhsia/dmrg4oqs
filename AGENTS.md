@@ -10,6 +10,9 @@ The following directories, files, and patterns MUST NOT be read or accessed:
 Any tool that reads files (`read`, `glob`, `grep`, `shell` with file-reading commands) must respect
 these restrictions.
 
+Scientific background and methodology are described in
+[`.opencode/skills/SKILL.md`](./.opencode/skills/SKILL.md); load the `heom-dmrg` skill for the physics.
+
 ## Layout
 
 All code is under `source/`, the working directory for the drivers (paths such as `./config` and
