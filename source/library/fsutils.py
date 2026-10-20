@@ -78,6 +78,50 @@ def load_npz(path):
     return data["t"], data["y"]
 
 
+# Metadata keys of a ``save_group`` archive (not per-case series).
+GROUP_META = ("identifier", "component", "branch")
+
+
+def save_group(series, directory, filename, identifier = "",
+               component = None, branch = None, compress: bool = True) -> None:
+    """Save per-case series with their own time axes in a single ``.npz``.
+
+    ``series`` maps a case name (or any key, e.g. the Padé order ``"2/3"``) to
+    its ``(t, y)`` pair; each pair is stored as ``t_<key>`` and ``<key>``, so
+    the archive reads as ``np.load(path)["qhm"]`` with ``["t_qhm"]``.
+    ``identifier`` records the observable, ``component`` labels the inner axis
+    of a two-component series (e.g. ``("P0", "P1")`` for populations) and
+    ``branch`` the first axis of stacked branches (e.g. ``("+", "-")`` for the
+    two coherences).
+    """
+    filepath = Path(directory) / filename
+    ensure_dir(filepath.parent)
+    payload = {}
+    for key, (t, y) in series.items():
+        payload["t_" + str(key)] = np.asarray(t)
+        payload[str(key)]        = np.asarray(y)
+    if identifier:
+        payload["identifier"] = np.array(identifier)
+    if component is not None:
+        payload["component"] = np.asarray(component)
+    if branch is not None:
+        payload["branch"] = np.asarray(branch)
+    (np.savez_compressed if compress else np.savez)(filepath, **payload)
+
+
+def load_group(path):
+    """Load a ``save_group`` archive as ``(series, meta)``.
+
+    ``series`` maps each case (or order) key to its ``(t, y)`` pair; ``meta``
+    holds the ``identifier``/``component``/``branch`` labels that are present.
+    """
+    with np.load(path) as f:
+        series = {k: (f["t_" + k], f[k]) for k in f.files
+                  if k not in GROUP_META and "t_" + k in f.files}
+        meta   = {k: f[k] for k in GROUP_META if k in f.files}
+    return series, meta
+
+
 def moments_filename(case: str, projection: str = "matrix") -> str:
     """Canonical moments data filename ``moments_<case>.{mat,scl}.npz``,
     where ``projection`` is ``"matrix"`` (``mat``) or ``"scalar"`` (``scl``).
