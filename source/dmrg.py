@@ -85,6 +85,7 @@ def main(prefix: str, quantum: bool = True, anharm: bool = False,
     tf    = xlims[0][1]
     t0    = 0.0 if t0 is None else float(t0)
     t1    = tf if t1 is None else float(t1)
+    state = (state or "").strip("'\"")
     t     = np.linspace(t0, t1, int(round((t1 - t0) / dt)) + 1)
     omega, c = ohmic_modes(lambd, wC, N = N, wmax_factor = wmax_factor)
 

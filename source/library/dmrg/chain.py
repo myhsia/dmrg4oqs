@@ -259,6 +259,7 @@ def run_observables(epsilon, Delta, omega, c, beta, t, quantum=True, anharm2=0.0
     if normalize_cmu and cmu[0] != 0:
         cmu = cmu / cmu[0]
     if save_state:
+        os.makedirs(os.path.dirname(save_state) or ".", exist_ok=True)
         with open(save_state, "wb") as f:
             pickle.dump({"psi": psi, "time": float(t[-1] + dt)}, f)
     return {'pop': pop, 'cohe_p': cop, 'cohe_m': com, 'Cmu': cmu, 'Cx': cx}
