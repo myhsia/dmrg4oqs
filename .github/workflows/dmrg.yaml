@@ -150,8 +150,9 @@ jobs:
           extra=""
           [ -n "${{ inputs.t0 }}" ] && extra="$extra -t0 ${{ inputs.t0 }}"
           [ -n "${{ inputs.t1 }}" ] && extra="$extra -t1 ${{ inputs.t1 }}"
-          if [ -n "${{ inputs.state }}" ]; then extra="$extra -state '${{ inputs.state }}'";
-          elif [ -n "${{ inputs.t0 }}" ]; then extra="$extra -state 'output/state/${{ matrix.case }}.pkl'"; fi
+          if [ -n "${{ inputs.state }}" ]; then extra="$extra -state ${{ inputs.state }}";
+          elif [ -n "${{ inputs.t0 }}" ]; then extra="$extra -state output/state/${{ matrix.case }}.pkl"; fi
+          mkdir -p output/state
           python dmrg.py "${{ matrix.config }}" -case "${{ matrix.case }}" \
             -N ${{ inputs.N }} -nmax ${{ inputs.nmax }} -chi ${{ inputs.chi }} \
             -dt ${{ inputs.dt }} -dtau ${{ inputs.dtau }} \
