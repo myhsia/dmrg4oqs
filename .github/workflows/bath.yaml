@@ -1,0 +1,61 @@
+name: Bath
+
+# Validity of the chain-mapped bath (static coupling weight and
+# Re<Q(t)Q(0)> against the exact discrete-mode curve).  Kept out of ci.yaml so
+# that routine pushes (whose CI cancels in progress) cannot kill this long job.
+on:
+  workflow_dispatch:
+    inputs:
+      N:
+        description: "Number of bath modes"
+        required: false
+        default: "16"
+      nmax:
+        description: "Fock-space truncation per chain site"
+        required: false
+        default: "16"
+      chi:
+        description: "Maximum MPS bond dimension"
+        required: false
+        default: "96"
+      tf:
+        description: "Final time"
+        required: false
+        default: "1.5"
+      dt:
+        description: "Time step"
+        required: false
+        default: "0.3"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bath-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  bath:
+    name: Chain-bath validity
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    defaults:
+      run:
+        shell: bash -el {0}
+    env:
+      MPLBACKEND: Agg
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up the dmrg environment
+        uses: ./.github/actions/dmrg-env
+        with:
+          build: "true"
+
+      - name: Check the chain bath
+        working-directory: source
+        run: |
+          conda activate dmrg
+          python check_bath.py -N ${{ inputs.N }} -nmax ${{ inputs.nmax }} \
+            -chi ${{ inputs.chi }} -tf ${{ inputs.tf }} -dt ${{ inputs.dt }}
