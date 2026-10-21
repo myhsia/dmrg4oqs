@@ -217,7 +217,7 @@ def run_observables(epsilon, Delta, omega, c, beta, t, quantum=True, anharm2=0.0
                     nmax=6, chi=64, dt=None, dtau=0.01, verbose=False,
                     engine="twosite", expansion_dim=16,
                     t0=None, state=None, save_state=None, normalize_cmu=None,
-                    n_jobs=1):
+                    n_jobs=1, chi_prep=None):
     """Chain-mapped observables (same dict as :func:`dmrg.tdmrg.run_observables`).
 
     ``engine`` selects the time-evolution engine: ``"twosite"`` (default) uses
@@ -252,8 +252,9 @@ def run_observables(epsilon, Delta, omega, c, beta, t, quantum=True, anharm2=0.0
         psi = payload["psi"]
         t0 = payload["time"]
     else:
-        bath = prepare_thermal(lat, model_prep, beta, chi=chi, dtau=dtau,
-                               N=N, nmax=nmax)
+        bath = prepare_thermal(lat, model_prep, beta,
+                               chi=chi if chi_prep is None else chi_prep,
+                               dtau=dtau, N=N, nmax=nmax)
         psi = {}
         for b in (0, 1):
             p = bath.copy()
