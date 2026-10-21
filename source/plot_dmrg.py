@@ -60,7 +60,7 @@ def _load(directory: str, names: list) -> dict:
     return out
 
 
-def main(prefix: str, cases = None) -> None:
+def main(prefix: str, cases = None, tmax = None) -> None:
     d = "./output/data/" + prefix + "/"
     wanted = CASES if not cases else [c for c in cases if c in CASES]
     names = [n for n in wanted if os.path.exists(d + "pop_" + _suffix(n) + ".npz")]
@@ -79,6 +79,8 @@ def main(prefix: str, cases = None) -> None:
 
     params = load_config(prefix)
     xlims = parse_xlims(params["xlims"], reorder=True)
+    if tmax is not None and len(xlims) == 2:
+        xlims = [[0.0, float(tmax)], xlims[1]]
 
     def row(key):
         out = []
@@ -102,7 +104,9 @@ def main(prefix: str, cases = None) -> None:
                                   r"\ttfamily " + n.upper()))
                 pop_lines.append((t, P[:, 1], color, ls, lw, alpha / 2, ""))
                 continue
-            p, q = cases[cases.index(n) % 2], cases[2 + cases.index(n) % 2]
+            i = cases.index(n)
+            p = cases[i % 2]
+            q = cases[2 + i % 2] if len(cases) >= 4 else p
             color, ls = VARIANTS[n][0], VARIANTS[n][1]
             pop_lines.append((t, P[:, 0], color, ls, VARIANTS[p][2],
                               VARIANTS[p][3], r"\ttfamily " + n.upper()))
@@ -132,8 +136,10 @@ if __name__ == "__main__":
     parser.add_argument("prefix", nargs="?", default=None)
     parser.add_argument("-cases", nargs="+", default=None,
                         help="Cases to draw (default: every case with data)")
+    parser.add_argument("-tmax", type=float, default=None,
+                        help="Override the x window (single-window configs)")
     args = parser.parse_args()
     for p in ([args.prefix] if args.prefix else RUNLIST):
-        main(p, cases=args.cases)
+        main(p, cases=args.cases, tmax=args.tmax)
 
 # %%
