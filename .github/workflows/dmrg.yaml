@@ -134,7 +134,7 @@ jobs:
         uses: ./.github/actions/dmrg-env
 
       - name: Restore the segment checkpoint
-        if: inputs.t0 != ''
+        if: inputs.t0 != '' && inputs.t0 != '0'
         uses: actions/cache@v6
         with:
           path: source/output/state
