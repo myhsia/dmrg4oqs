@@ -117,7 +117,8 @@ def main(prefix: str, quantum: bool = True, anharm: bool = False,
                                    quantum = quantum, anharm2 = a ** 2,
                                    nmax = nmax, chi = chi, dt = dt, t0 = t0,
                                    state = state or None,
-                                   save_state = state or None)
+                                   save_state = state or None,
+                                   n_jobs = n_jobs)
 
     # 5. Save to npz
     save_time(t, res["pop"],

@@ -36,9 +36,39 @@ def _local_expect(psi):
             psi.expectation_value('Sigmay', sites=[0])[0])
 
 
+def _measure(psi0, psi1):
+    """Local expectation values of state 0 plus the cross term M01."""
+    sz0, sx0, sy0 = _local_expect(psi0)
+    sx1 = psi1.expectation_value('Sigmax', sites=[0])[0]
+    tmp = psi1.copy()
+    tmp.apply_local_op(0, 'Sigmax', unitary=False)
+    return sz0, sx0, sy0, sx1, psi0.overlap(tmp)
+
+
+def _evolve_one(b, psi_b, model_args, opts, t, snapdir):
+    """Evolve one purified state, snapshotting it at every output time.
+
+    Runs in a joblib worker; the model is rebuilt from ``model_args`` so only
+    the MPS crosses the process boundary.
+    """
+    epsilon, Delta, omega, c, anharm2, nmax = model_args
+    lat, model, H = build_model(epsilon, Delta, omega, c, anharm2=anharm2, nmax=nmax)
+    eng = TwoSiteTDVPEngine(psi_b, model, opts)
+    snaps = []
+    for it in range(len(t)):
+        path = os.path.join(snapdir, f"b{b}_{it:05d}.pkl")
+        with open(path, "wb") as f:
+            pickle.dump(psi_b, f)
+        snaps.append(path)
+        if it < len(t) - 1:
+            eng.run()
+    return b, snaps
+
+
 def run_observables(epsilon, Delta, omega, c, beta, t, quantum=True, anharm2=0.0,
                     nmax=6, chi=128, dt=None, verbose=False,
-                    t0=None, state=None, save_state=None, normalize_cmu=None):
+                    t0=None, state=None, save_state=None, normalize_cmu=None,
+                    n_jobs=1):
     """Evolve the spin-boson MPS and return the five observables.
 
     Returns a dict with ``pop`` (nT, 2 real), ``cohe_p``, ``cohe_m``,
@@ -70,33 +100,60 @@ def run_observables(epsilon, Delta, omega, c, beta, t, quantum=True, anharm2=0.0
         'preserve_norm': True, 'start_time': t0,
         'max_N_sites_per_ring': lat.N_sites,
     }
-    eng = {b: TwoSiteTDVPEngine(psi[b], model, opts) for b in (0, 1)}
-
     nT = len(t)
     pop = np.empty((nT, 2))
     cop = np.empty(nT, complex)
     com = np.empty(nT, complex)
     cmu = np.empty(nT, complex)
     cx = np.empty(nT, complex)
-    for it in range(nT):
-        sz0, sx0, sy0 = _local_expect(psi[0])
-        sx1 = psi[1].expectation_value('Sigmax', sites=[0])[0]
+
+    def store(it, sz0, sx0, sy0, sx1, M01):
         pop[it, 0] = (1.0 + sz0.real) / 2.0
         pop[it, 1] = (1.0 - sz0.real) / 2.0
         cop[it] = (sx0 + 1j * sy0) / 2.0
         com[it] = (sx0 - 1j * sy0) / 2.0
-        tmp = psi[1].copy()
-        tmp.apply_local_op(0, 'Sigmax', unitary=False)
-        M01 = psi[0].overlap(tmp)
         M = np.array([[sx0, M01], [np.conj(M01), sx1]], dtype=complex)
         cmu[it] = M01
         cx[it] = np.sum(_CX * M)
-        if verbose:
-            print(f"  t={t[it]:.3f} chi={max(psi[0].chi)} "
-                  f"pop0={pop[it, 0]:.4f}", flush=True)
-        if it < nT - 1:
-            for b in (0, 1):
-                eng[b].run()
+
+    if n_jobs and n_jobs > 1:
+        import shutil
+        import tempfile
+        from joblib import Parallel, delayed
+        snapdir = tempfile.mkdtemp(prefix="dmrg_snap_")
+        threads = max(1, (os.cpu_count() or 1) // max(1, n_jobs))
+        try:
+            res = Parallel(n_jobs=n_jobs, inner_max_num_threads=threads)(
+                delayed(_evolve_one)(
+                    b, psi[b], (epsilon, Delta, omega, c, anharm2, nmax),
+                    opts, t, snapdir) for b in (0, 1))
+            snaps = {b: s for (b, s) in res}
+            for it in range(nT):
+                with open(snaps[0][it], "rb") as f:
+                    p0 = pickle.load(f)
+                with open(snaps[1][it], "rb") as f:
+                    p1 = pickle.load(f)
+                store(it, *_measure(p0, p1))
+                if verbose:
+                    print(f"  t={t[it]:.3f} chi={max(p0.chi)} "
+                          f"pop0={pop[it, 0]:.4f}", flush=True)
+            with open(snaps[0][-1], "rb") as f:
+                final0 = pickle.load(f)
+            with open(snaps[1][-1], "rb") as f:
+                final1 = pickle.load(f)
+            psi = {0: final0, 1: final1}
+        finally:
+            shutil.rmtree(snapdir, ignore_errors=True)
+    else:
+        eng = {b: TwoSiteTDVPEngine(psi[b], model, opts) for b in (0, 1)}
+        for it in range(nT):
+            store(it, *_measure(psi[0], psi[1]))
+            if verbose:
+                print(f"  t={t[it]:.3f} chi={max(psi[0].chi)} "
+                      f"pop0={pop[it, 0]:.4f}", flush=True)
+            if it < nT - 1:
+                for b in (0, 1):
+                    eng[b].run()
     if normalize_cmu and cmu[0] != 0:
         cmu = cmu / cmu[0]
     if save_state:

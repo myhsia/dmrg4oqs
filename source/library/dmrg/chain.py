@@ -289,8 +289,11 @@ def run_observables(epsilon, Delta, omega, c, beta, t, quantum=True, anharm2=0.0
         import tempfile
         from joblib import Parallel, delayed
         snapdir = tempfile.mkdtemp(prefix="dmrg_snap_")
+        # Only two states are independent, so n_jobs <= 2; give each worker its
+        # share of the remaining cores so all of them stay busy (BLAS threads).
+        threads = max(1, (os.cpu_count() or 1) // max(1, n_jobs))
         try:
-            res = Parallel(n_jobs=n_jobs, inner_max_num_threads=1)(
+            res = Parallel(n_jobs=n_jobs, inner_max_num_threads=threads)(
                 delayed(_evolve_one)(
                     b, psi[b], (epsilon, Delta, omega, c, nmax, anharm2),
                     opts, t, snapdir, engine) for b in (0, 1))
