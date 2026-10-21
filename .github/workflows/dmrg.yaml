@@ -67,6 +67,10 @@ on:
         description: "Checkpoint file (empty: none; resume if it exists)"
         required: false
         default: ""
+      njobs:
+        description: "joblib workers for the two initial states (2 halves the wall time)"
+        required: false
+        default: "1"
 
 permissions:
   contents: read
@@ -158,7 +162,8 @@ jobs:
             -dt ${{ inputs.dt }} -dtau ${{ inputs.dtau }} \
             -wmax_factor ${{ inputs.wmax_factor }} \
             -geometry "${{ inputs.geometry }}" \
-            -engine "${{ inputs.engine }}" -tag "${{ inputs.tag }}" $extra
+            -engine "${{ inputs.engine }}" -tag "${{ inputs.tag }}" \
+            -njobs ${{ inputs.njobs }} $extra
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v7

@@ -178,15 +178,56 @@ def prepare_thermal(lat, model_prep, beta, chi=64, dtau=0.01, N=1, nmax=6):
     return psi
 
 
+def _measure(psi0, psi1):
+    """Local expectation values of state 0 plus the cross term M01."""
+    sz0 = psi0.expectation_value('Sigmaz', sites=[0])[0]
+    sx0 = psi0.expectation_value('Sigmax', sites=[0])[0]
+    sy0 = psi0.expectation_value('Sigmay', sites=[0])[0]
+    sx1 = psi1.expectation_value('Sigmax', sites=[0])[0]
+    tmp = psi1.copy()
+    tmp.apply_local_op(0, 'Sigmax', unitary=False)
+    M01 = psi0.overlap(tmp)
+    return sz0, sx0, sy0, sx1, M01
+
+
+def _evolve_one(b, psi_b, model_args, opts, t, snapdir, engine):
+    """Evolve one of the two purified states, snapshotting it at every time.
+
+    Runs in a joblib worker: it rebuilds the lattice/model (cheap and
+    deterministic) so only the MPS has to cross the process boundary.  The
+    observables are formed afterwards in the parent from the snapshot pairs
+    (``M_01`` needs both states at the same time).
+    """
+    lat, model, model_prep, N = build_models(*model_args)
+    Engine = SingleSiteTDVPEngine if engine == "onesite" else TwoSiteTDVPEngine
+    eng = Engine(psi_b, model, opts)
+    nT = len(t)
+    snaps = []
+    for it in range(nT):
+        path = os.path.join(snapdir, f"b{b}_{it:05d}.pkl")
+        with open(path, "wb") as f:
+            pickle.dump(psi_b, f)
+        snaps.append(path)
+        if it < nT - 1:
+            eng.run()
+    return b, snaps
+
+
 def run_observables(epsilon, Delta, omega, c, beta, t, quantum=True, anharm2=0.0,
                     nmax=6, chi=64, dt=None, dtau=0.01, verbose=False,
                     engine="twosite", expansion_dim=16,
-                    t0=None, state=None, save_state=None, normalize_cmu=None):
+                    t0=None, state=None, save_state=None, normalize_cmu=None,
+                    n_jobs=1):
     """Chain-mapped observables (same dict as :func:`dmrg.tdmrg.run_observables`).
 
     ``engine`` selects the time-evolution engine: ``"twosite"`` (default) uses
     two-site TDVP; ``"onesite"`` uses single-site TDVP with Krylov subspace
     expansion (cheaper, ~3x faster here, but numerically unreliable).
+
+    ``n_jobs > 1`` evolves the two initial states in parallel joblib workers
+    (the two propagations are independent), snapshotting each MPS per output
+    time so the cross overlap is formed in a short merge pass.  This roughly
+    halves the wall time on a two-core machine.
 
     Segment support: if ``state`` exists it is a pickled ``{"psi", "time"}``
     checkpoint (the thermal preparation and the initial states are skipped);
@@ -227,35 +268,59 @@ def run_observables(epsilon, Delta, omega, c, beta, t, quantum=True, anharm2=0.0
             'trunc_params': {'chi_max': chi, 'svd_min': 1e-13},
             'start_time': t0, 'max_N_sites_per_ring': lat.N_sites,
             'lanczos_params': lanczos}
-    eng = {b: Engine(psi[b], model, opts) for b in (0, 1)}
-
     nT = len(t)
     pop = np.empty((nT, 2))
     cop = np.empty(nT, complex)
     com = np.empty(nT, complex)
     cmu = np.empty(nT, complex)
     cx = np.empty(nT, complex)
-    for it in range(nT):
-        sz0 = psi[0].expectation_value('Sigmaz', sites=[0])[0]
-        sx0 = psi[0].expectation_value('Sigmax', sites=[0])[0]
-        sy0 = psi[0].expectation_value('Sigmay', sites=[0])[0]
-        sx1 = psi[1].expectation_value('Sigmax', sites=[0])[0]
+
+    def store(it, sz0, sx0, sy0, sx1, M01):
         pop[it, 0] = (1.0 + sz0.real) / 2.0
         pop[it, 1] = (1.0 - sz0.real) / 2.0
         cop[it] = (sx0 + 1j * sy0) / 2.0
         com[it] = (sx0 - 1j * sy0) / 2.0
-        tmp = psi[1].copy()
-        tmp.apply_local_op(0, 'Sigmax', unitary=False)
-        M01 = psi[0].overlap(tmp)
         M = np.array([[sx0, M01], [np.conj(M01), sx1]], dtype=complex)
         cmu[it] = M01
         cx[it] = np.sum(_CX * M)
-        if verbose:
-            print(f"  t={t[it]:.3f} chi={max(psi[0].chi)} "
-                  f"pop0={pop[it, 0]:.4f}", flush=True)
-        if it < nT - 1:
-            for b in (0, 1):
-                eng[b].run()
+
+    if n_jobs and n_jobs > 1:
+        import shutil
+        import tempfile
+        from joblib import Parallel, delayed
+        snapdir = tempfile.mkdtemp(prefix="dmrg_snap_")
+        try:
+            res = Parallel(n_jobs=n_jobs, inner_max_num_threads=1)(
+                delayed(_evolve_one)(
+                    b, psi[b], (epsilon, Delta, omega, c, nmax, anharm2),
+                    opts, t, snapdir, engine) for b in (0, 1))
+            snaps = {b: s for (b, s) in res}
+            for it in range(nT):
+                with open(snaps[0][it], "rb") as f:
+                    p0 = pickle.load(f)
+                with open(snaps[1][it], "rb") as f:
+                    p1 = pickle.load(f)
+                store(it, *_measure(p0, p1))
+                if verbose:
+                    print(f"  t={t[it]:.3f} chi={max(p0.chi)} "
+                          f"pop0={pop[it, 0]:.4f}", flush=True)
+            with open(snaps[0][-1], "rb") as f:
+                final0 = pickle.load(f)
+            with open(snaps[1][-1], "rb") as f:
+                final1 = pickle.load(f)
+            psi = {0: final0, 1: final1}
+        finally:
+            shutil.rmtree(snapdir, ignore_errors=True)
+    else:
+        eng = {b: Engine(psi[b], model, opts) for b in (0, 1)}
+        for it in range(nT):
+            store(it, *_measure(psi[0], psi[1]))
+            if verbose:
+                print(f"  t={t[it]:.3f} chi={max(psi[0].chi)} "
+                      f"pop0={pop[it, 0]:.4f}", flush=True)
+            if it < nT - 1:
+                for b in (0, 1):
+                    eng[b].run()
     if normalize_cmu and cmu[0] != 0:
         cmu = cmu / cmu[0]
     if save_state:

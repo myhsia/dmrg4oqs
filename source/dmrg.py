@@ -65,6 +65,10 @@ def _parse_args():
                         help = "Segment end time (default: the config tf)")
     parser.add_argument("-state", type = str, default = "",
                         help = "Checkpoint file: resume if it exists, save at the end")
+    parser.add_argument("-njobs", type = int, default = 1,
+                        help = "joblib workers for the two initial states within a case (1 = serial)")
+    parser.add_argument("-nproc", type = int, default = 1,
+                        help = "joblib processes for independent cases (local full runs)")
     return parser.parse_args()
 
 
@@ -72,7 +76,8 @@ def main(prefix: str, quantum: bool = True, anharm: bool = False,
          N: int = 20, nmax: int = 6, chi: int = 128, dt: float = 0.02,
          wmax_factor: float = 10.0, geometry: str = "chain", dtau: float = 0.02,
          engine: str = "twosite", tag_suffix: str = "",
-         t0: float = None, t1: float = None, state: str = ""):
+         t0: float = None, t1: float = None, state: str = "",
+         n_jobs: int = 1):
     # 3. Parameters (physical values; ``scale`` is a numerical device only)
     params = load_config(prefix)
     epsilon= params["epsilon"]
@@ -105,7 +110,8 @@ def main(prefix: str, quantum: bool = True, anharm: bool = False,
                                     nmax = nmax, chi = chi, dt = dt, dtau = dtau,
                                     engine = engine, t0 = t0,
                                     state = state or None,
-                                    save_state = state or None)
+                                    save_state = state or None,
+                                    n_jobs = n_jobs)
     else:
         res = run_observables_star(epsilon, Delta, omega, c, beta, t,
                                    quantum = quantum, anharm2 = a ** 2,
@@ -135,13 +141,21 @@ def run(prefix: str, cases = CASES, N: int = 20, nmax: int = 6,
         chi: int = 128, dt: float = 0.02, wmax_factor: float = 10.0,
         geometry: str = "auto", dtau: float = 0.02, engine: str = "twosite",
         tag_suffix: str = "", t0: float = None, t1: float = None,
-        state: str = ""):
-    for case in cases:
+        state: str = "", nproc: int = 1, n_jobs: int = 1):
+    def one(case):
         quantum, anharm = _CASE_MATRIX[case]
         main(prefix, quantum = quantum, anharm = anharm, N = N, nmax = nmax,
              chi = chi, dt = dt, wmax_factor = wmax_factor, geometry = geometry,
              dtau = dtau, engine = engine, tag_suffix = tag_suffix,
-             t0 = t0, t1 = t1, state = state)
+             t0 = t0, t1 = t1, state = state, n_jobs = n_jobs)
+    # Case-level parallelism only makes sense for independent full runs: a
+    # segmented run shares one checkpoint path and must stay serial.
+    if nproc > 1 and len(cases) > 1 and not state and t0 is None and t1 is None:
+        from joblib import Parallel, delayed
+        Parallel(n_jobs = nproc)(delayed(one)(c) for c in cases)
+    else:
+        for case in cases:
+            one(case)
 
 
 if __name__ == "__main__":
@@ -151,6 +165,7 @@ if __name__ == "__main__":
         run(prefix, cases = cases, N = args.N, nmax = args.nmax,
             chi = args.chi, dt = args.dt, wmax_factor = args.wmax_factor,
             geometry = args.geometry, dtau = args.dtau, engine = args.engine,
-            tag_suffix = args.tag, t0 = args.t0, t1 = args.t1, state = args.state)
+            tag_suffix = args.tag, t0 = args.t0, t1 = args.t1, state = args.state,
+            nproc = args.nproc, n_jobs = args.njobs)
 
 # %%
