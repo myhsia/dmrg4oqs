@@ -60,9 +60,10 @@ def _load(directory: str, names: list) -> dict:
     return out
 
 
-def main(prefix: str) -> None:
+def main(prefix: str, cases = None) -> None:
     d = "./output/data/" + prefix + "/"
-    names = [n for n in CASES if os.path.exists(d + "pop_" + _suffix(n) + ".npz")]
+    wanted = CASES if not cases else [c for c in cases if c in CASES]
+    names = [n for n in wanted if os.path.exists(d + "pop_" + _suffix(n) + ".npz")]
     if os.path.exists(d + "pop_heom.npz"):
         names.append("heom")
     cases = [n for n in names if n != "heom"]
@@ -129,8 +130,10 @@ RUNLIST = ["A-base_line"]
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Plot the tDMRG reference.")
     parser.add_argument("prefix", nargs="?", default=None)
+    parser.add_argument("-cases", nargs="+", default=None,
+                        help="Cases to draw (default: every case with data)")
     args = parser.parse_args()
     for p in ([args.prefix] if args.prefix else RUNLIST):
-        main(p)
+        main(p, cases=args.cases)
 
 # %%
