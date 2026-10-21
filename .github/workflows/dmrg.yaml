@@ -139,13 +139,12 @@ jobs:
 
       - name: Restore the segment checkpoint
         if: inputs.t0 != '' && inputs.t0 != '0'
-        uses: actions/cache@v6
+        uses: actions/cache/restore@v6
         with:
           path: source/output/state
           key: state-${{ matrix.config }}-${{ matrix.case }}-${{ inputs.t1 }}
           restore-keys: |
             state-${{ matrix.config }}-${{ matrix.case }}-
-          save-always: true
 
       - name: Run tDMRG
         working-directory: source
@@ -172,3 +171,10 @@ jobs:
           path: source/output/data/${{ matrix.config }}
           if-no-files-found: error
           retention-days: 30
+
+      - name: Save the segment checkpoint
+        if: always()
+        uses: actions/cache/save@v6
+        with:
+          path: source/output/state
+          key: state-${{ matrix.config }}-${{ matrix.case }}-${{ inputs.t1 }}
