@@ -66,7 +66,8 @@ def _parse_args():
     parser.add_argument("-state", type = str, default = "",
                         help = "Checkpoint file: resume if it exists, save at the end")
     parser.add_argument("-njobs", type = int, default = 1,
-                        help = "joblib workers for the two initial states within a case (1 = serial)")    parser.add_argument("-nproc", type = int, default = 1,
+                        help = "joblib workers for the two initial states within a case (1 = serial)")
+    parser.add_argument("-nproc", type = int, default = 1,
                         help = "joblib processes for independent cases (local full runs)")
     parser.add_argument("-chi_prep", type = int, default = 0,
                         help = "Bond dimension for the thermal-state preparation (0: same as -chi)")
