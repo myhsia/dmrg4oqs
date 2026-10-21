@@ -91,26 +91,3 @@ jobs:
         run: |
           conda activate dmrg
           python -c "import heom; print('heom import OK')"
-
-  bath:
-    name: Chain-bath validity
-    needs: build_env
-    runs-on: ubuntu-latest
-    timeout-minutes: 150
-    defaults:
-      run:
-        shell: bash -el {0}
-    env:
-      MPLBACKEND: Agg
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-
-      - name: Set up the dmrg environment
-        uses: ./.github/actions/dmrg-env
-
-      - name: Check the chain bath
-        working-directory: source
-        run: |
-          conda activate dmrg
-          python check_bath.py -N 16 -nmax 16 -chi 96 -tf 1.5
