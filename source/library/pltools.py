@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
+from matplotlib.patches import FancyBboxPatch
 from matplotlib.ticker import FuncFormatter
 from typing import TypeAlias
 matplotlib.rcParams.update({
@@ -48,6 +49,31 @@ class GridPlt:
     H_BAR    = W / 16
     H_BODY   = 9  * W / 16
     H_LEGEND = 10 * W / 16
+    # Shared style for the small rounded tags (Re/Im and table frames).
+    TAG_BBOX = dict(boxstyle = "round, pad = .20",
+                    facecolor = "gray", alpha = .25)
+
+    @staticmethod
+    def round_box(ax, xy, width, height, rounding_size: float = 0.015,
+                  transform = None, **kwargs):
+        """Rounded box whose corners are circles, not ellipses.
+
+        ``rounding_size`` is measured in x-units of ``transform`` (the axes
+        fractions by default); ``mutation_aspect`` corrects the y corners for
+        the display aspect ratio, so the radius is the same in both directions
+        at any position of the axes (data or axes coordinates).
+        """
+        t = transform if transform is not None else ax.transAxes
+        o = t.transform((0.0, 0.0))
+        sx = float(np.hypot(*(t.transform((1.0, 0.0)) - o)))
+        sy = float(np.hypot(*(t.transform((0.0, 1.0)) - o)))
+        patch = FancyBboxPatch(
+            xy, width, height,
+            boxstyle = f"round,pad=0,rounding_size={rounding_size}",
+            mutation_aspect = sx / sy,
+            transform = t, **kwargs)
+        ax.add_patch(patch)
+        return patch
 
     @staticmethod
     def _new_grid(gridspec_kw: dict, figsize = None, nrow: int = 2):
@@ -153,8 +179,7 @@ class GridPlt:
                     else ('NE' if col == 0 else 'NW')
                 ax.set_title(title_text, x = x_pos, ha = ha,
                                          y = y_pos, va = va,
-                             bbox = dict(boxstyle   = "round, pad = .20",
-                                         facecolor  = "gray", alpha = .25))
+                             bbox = GridPlt.TAG_BBOX)
                 badges.append((ax.title, ax, corner))
                 # Axis Limits & Formatting
                 ax.set_xlim(x_min, x_max)
