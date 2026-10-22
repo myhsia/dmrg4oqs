@@ -63,13 +63,18 @@ Consequences for the reference:
 - The figure is therefore drawn with `python plot_dmrg.py A_base_line -cases qhm qah -tmax 2`
   (quantum cases only, restricted window), overlaying HEOM.
 
-## Shared pieces (this repository owns them)
+## Shared pieces (mirrored from `mkct-oqs`)
 
-`source/config/` and `source/library/{qutils,fsutils,pltools}.py` live **here** and are the single
-source of truth.  The private companion `mkct-oqs` repository symlinks them locally (gitignored)
-and checks this repository out anonymously in its CI to copy them; no token is needed because this
-repository is public.  `fsutils.py` also carries the grouped-archive writer/loader
-(`save_group`/`load_group`) used by the companion's MKCT results.
+The **canonical** `source/heom.py`, `source/config/`, and
+`source/library/{qutils,fsutils,pltools}.py` live in the private `mkct-oqs` repository.  This
+repository keeps **synced copies** so that a public clone and the CI work without a token.
+
+> **Sync reminder.**  After changing any of them in `mkct-oqs`, run
+> `bash tools/sync_from_mkct.sh` here, then commit and push.  `sh-oqs` mirrors the same pieces
+> and needs the same sync.
+
+`fsutils.py` also carries the grouped-archive writer/loader (`save_group`/`load_group`) used by
+the companion's MKCT results.
 
 ## Conventions
 
