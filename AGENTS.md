@@ -45,23 +45,42 @@ All code is under `source/`, the working directory for the drivers (paths such a
 
 ## Validity (measured, not assumed)
 
-`check_bath.py` (run by the dispatch-only `bath` workflow) compares the chain bath with the exact
-discrete modes.  At the reference settings (N=16, `nmax=16`, χ=96):
+Score with the house metric (`dmrg_error.py`, the shared `library/mre.py`): the relative `L2` error
+of `{Re P0, Re P1, Re C_xx, Re C_xy, Im C_xx, Im C_xy}` against HEOM over the config window,
+averaged and reported in percent.
 
-- static weight `⟨Q²⟩` = **95.2 %** of `Σ c²½coth(βω/2)` (so `nmax=16` is needed; `nmax=8` gives 85 %);
-- `Re⟨Q(t)Q(0)⟩` relative error **0.126**, but the curve is **over-damped**: 0.067 vs 0.34 at `t=0.3`
-  and ≈0 afterwards, i.e. the real-time *bath* dynamics is faithful only for `t ≲ 0.3`.
+**Result (reference scenario, t ≤ 2):** star geometry, N=16, `nmax=8`, χ=64, **`dt=0.075`** gives
+**7.7 %** (per curve 5.0–10.8 %) — about four times better than the FSSH reference (28 %).  So the
+tDMRG reference *is* quantitative in this window.
 
-Consequences for the reference:
+**The decisive parameter is `dt`, not χ.**  The star's highest mode is `ω_max ≈ 40`, so `dt=0.3`
+means `ω dt ≈ 12`; the per-step truncation then damps the fast modes and fabricates a "too fast
+initial decay" that looks like a χ/`nmax`/thermal-state problem.  Measured at N=16, χ=64,
+`nmax=8`:
 
-- qhm tracks HEOM within ≈0.08 up to `t≈0.3` and ≈0.12 up to `t≈1.1`, then departs (0.234 over 0→2);
-  qah collapses (0.609).  Raising χ (32→96) or `nmax` (8→16) does **not** help: with the correct
-  weight the over-damped bath is exposed.  The limit is the bath's real-time MPS evolution, not the
-  system-side algebra (which reproduces ED for N≤3 to ~1e-2 in `library/dmrg/validation.py`).
-- The classical cases (`chm`/`cah`) collapse by `t≈0.6` at every setting: the per-mode squeezed
-  thermal state is not a Gibbs state, so they are not a quantitative reference and are **not plotted**.
-- The figure is therefore drawn with `python plot_dmrg.py A_base_line -cases qhm qah -tmax 2`
-  (quantum cases only, restricted window), overlaying HEOM.
+| `dt` | pop₀ at t=0.4 / 0.8 / 1.2 (HEOM 0.866 / 0.631 / 0.481) |
+|---|---|
+| 0.3 | 0.718 / 0.447 / 0.391 (wrong) |
+| 0.15 | 0.824 / 0.629 / 0.474 |
+| **0.075** | **0.874 / 0.598 / 0.467** |
+
+**Geometry.**  Prefer the **star** with a **per-mode `nmax`** (`-nmax` accepts a sequence): the star's
+thermal state is an exact product of per-mode TFDs (no imaginary-time preparation, which dominated
+the chain runs at 2 h+), and a schedule such as `[20, 8, 4, 2, …]` keeps 99.4 % of the static weight
+`⟨Q²⟩` at 7.5× lower cost (`Σd³` 10 466 vs 78 608 for uniform 16).  The chain remains available but
+its preparation is expensive and no better.
+
+**Window.**  With N modes the discrete bath correlation recurs at `t ≈ 2πN/w_max`; for N=16,
+`w_max=40` that is ≈2.5, so the reference is meaningful only up to `t ≈ 2` (the metric window is
+still the config's `tf`; `dmrg_error.py` warns when the series ends earlier).  A longer window needs
+larger N (N=40 → t ≈ 6).
+
+**Classical cases.**  `chm`/`cah` collapse by `t ≈ 0.6` at every setting: the per-mode squeezed
+thermal state is not a Gibbs state, so they are not a quantitative reference and are **not plotted**.
+
+**Regression.**  `library/dmrg/validation.py` reproduces exact diagonalization for N ≤ 3 to ~1e-2,
+so the mapping and the observable algebra are sound; `check_bath.py` measures the bath itself.
+
 
 ## Shared pieces (mirrored from `mkct4oqs`)
 
@@ -85,9 +104,12 @@ the companion's MKCT results.
 - The **classical** cases use a per-mode squeezed thermal state (the classical bath lies below the
   quantum zero-point and is not a Gibbs state).
 - **`engine`**: two-site TDVP is the correct engine.  The single-site + subspace-expansion variant
-  (`-engine onesite`) is numerically wrong (it oscillates/collapses) — do not use it.
+  (`-engine onesite`) is numerically wrong (it oscillates/collapses) — do not use it.  (Pure
+  one-site TDVP at fixed χ, without the expansion, is fine and is what the reference protocol uses.)
 - **Bath modes**: the discrete bath correlation recurs at `t ≈ 2πN/w_max`, so matching the continuum
-  over `t ≤ 12` needs `N ≳ 80`; `nmax ≥ 8`, `chi ≳ 64` and `dt ≲ 0.3` are needed too.
+  over `t ≤ 12` needs `N ≳ 80` (N=16 → t ≈ 2.5).  `nmax ≥ 8` (or a per-mode schedule keeping
+  ≥ 99 % of `⟨Q²⟩`) and χ ≳ 64 are needed, and crucially **`dt ≲ 0.1`** because the star's highest
+  mode is `ω_max = wmax_factor*C` (`ω dt` must stay ≲ 3).
 - Coding style: see the maintainer's shared `repo-rules` skill.
 
 ## Workflows
