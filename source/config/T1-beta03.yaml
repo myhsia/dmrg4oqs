@@ -1,9 +1,0 @@
-base: "A-base_line"
-# Temperature scan around the reference scenario: only beta (and its numerical
-# companion scale) changes; the window stays [0, 12] for a like-for-like
-# comparison of MKCT, the surface-hopping references and HEOM.
-beta: "*0.5"
-scale: "*0.5"
-xlims:
-  - [0, 12]
-  - 4
