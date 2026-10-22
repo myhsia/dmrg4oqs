@@ -1,5 +1,5 @@
-[![CI](https://github.com/myhsia/heomXdmrg-spin_boson/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/myhsia/heomXdmrg-spin_boson/actions)
-[![License](https://img.shields.io/github/license/myhsia/heomXdmrg-spin_boson)](LICENSE)
+[![CI](https://github.com/myhsia/dmrg4oqs/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/myhsia/dmrg4oqs/actions)
+[![License](https://img.shields.io/github/license/myhsia/dmrg4oqs)](LICENSE)
 
 Reference dynamics for the spin-boson system: HEOM and MPS/tDMRG
 ===============================================================
@@ -17,7 +17,7 @@ cross-check a companion memory-kernel project:
 This repository is the single source of truth for the **non-sensitive shared
 pieces** as well: the quantum primitives (`qutils.py`), the config/data IO
 helpers (`fsutils.py`), the plotting grid (`pltools.py`), and the parameter
-files under `source/config/`.  The private companion `mkct-oqs` repository (the
+files under `source/config/`.  The private companion `mkct4oqs` repository (the
 memory-kernel code) links to these rather than duplicating them.
 
 Bath and model
