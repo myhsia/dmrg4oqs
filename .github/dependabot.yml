@@ -1,10 +1,14 @@
 version: 2
 updates:
-  - package-ecosystem: conda
-    directory: "/source"
-    schedule:
-      interval: daily
-  - package-ecosystem: github-actions
+
+  - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: weekly
+      # Check for updates to GitHub Actions every day
+      interval: "daily"
+
+  - package-ecosystem: "conda"
+    directory: "/source"
+    schedule:
+      # Check for interpreter updates every day (`python=3.15` in environment.yaml)
+      interval: "daily"
