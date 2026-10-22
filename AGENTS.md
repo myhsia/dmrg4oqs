@@ -66,7 +66,8 @@ Consequences for the reference:
 ## Shared pieces (mirrored from `mkct-oqs`)
 
 The **canonical** `source/heom.py`, `source/config/`, and
-`source/library/{qutils,fsutils,pltools}.py` live in the private `mkct-oqs` repository.  This
+`source/library/{qutils,fsutils,pltools,extended_heom}.py` live in the private `mkct-oqs`
+repository.  This
 repository keeps **synced copies** so that a public clone and the CI work without a token.
 
 > **Sync reminder.**  After changing any of them in `mkct-oqs`, run
