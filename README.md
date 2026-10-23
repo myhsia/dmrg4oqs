@@ -9,7 +9,7 @@ cross-check a companion memory-kernel project:
 
 - **HEOM** — hierarchical equations of motion for linear coupling (`qutip`'s
   `OhmicEnvironment` + `HEOMSolver`) and an extended hierarchy for quadratic
-  coupling (`extended_heom.py`).
+  coupling (`extended_deom.py`).
 - **MPS / tDMRG** — the joint system-plus-bath state evolved as a matrix
   product state (two-site TDVP) and reduced to populations, coherences, and
   auto-/cross-correlation functions.
@@ -41,14 +41,14 @@ All code lives under `source/`, the working directory for every driver (paths
 such as `./config` and `./output` are relative to it):
 
     source/
-      heom.py                    # HEOM / extended-HEOM reference dynamics
+      reference.py                    # HEOM / extended-DEOM reference dynamics
       dmrg.py                    # MPS/tDMRG reference dynamics
       plot_dmrg.py               # dmrg@<prefix>.pdf figures
       environment.yaml           # conda environment (`dmrg`)
       requirements.txt
       config/                    # parameter files (shared, non-sensitive)
       library/
-        extended_heom.py         # extended HEOM for quadratic coupling
+        extended_deom.py         # extended DEOM for quadratic coupling
         qutils.py fsutils.py pltools.py
         dmrg/                    # MPS/tDMRG implementation + regression suite
 
@@ -67,7 +67,7 @@ Run
 From `source/` with the environment active:
 
 ```bash
-python heom.py                             # HEOM reference -> output/data/<prefix>/
+python reference.py                             # HEOM reference -> output/data/<prefix>/
 python dmrg.py A-base_line                 # four cases -> output/data/A-base_line/
 python plot_dmrg.py A-base_line            # -> output/figures/dmrg@A-base_line.pdf
 python library/dmrg/validation.py          # regression suite (ED references)

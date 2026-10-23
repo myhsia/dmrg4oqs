@@ -33,9 +33,9 @@ where the last reduces to four overlaps with fixed coefficients.
 ## HEOM
 
 - Linear coupling: qutip's `OhmicEnvironment` + `HEOMSolver` (ESPIRA-I fit).
-- Quadratic coupling: the extended HEOM/DEOM in
-  `source/library/extended_heom.py`.
-- `source/heom.py` runs the four cases for each config in its `RUNLIST` and writes
+- Quadratic coupling: the extended DEOM in
+  `source/library/extended_deom.py`.
+- `source/reference.py` runs the four cases for each config in its `RUNLIST` and writes
   `output/data/<prefix>/{pop,cohe,cohem,corr,xorr}_heom.npz` (the shared `save_time` schema).
 
 ## MPS / tDMRG
@@ -68,7 +68,7 @@ where the last reduces to four overlaps with fixed coefficients.
 
 ```bash
 cd source
-python heom.py                        # HEOM reference -> output/data/<prefix>/
+python reference.py                        # HEOM reference -> output/data/<prefix>/
 python dmrg.py A-base_line            # four cases -> output/data/A-base_line/
 python plot_dmrg.py A-base_line       # -> output/figures/dmrg@A-base_line.pdf
 python library/dmrg/validation.py     # regression suite
