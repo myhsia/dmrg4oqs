@@ -55,16 +55,17 @@ averaged and reported in percent.
 |---|---|
 | χ=64, `dt=0.05` | **6.5 %** |
 | χ=64, `dt=0.075` | 7.7 % |
+| χ=128, `dt=0.05` | 10.9 % |
 | χ=128, `dt=0.075`, `nmax=12` | 13.3 % |
 | χ=128, `dt=0.075`, `nmax=8` | 14.5 % |
 | N=40, χ=64, `dt=0.075` (t ≤ 4) | 44.9 % |
 | χ=96, `nmax=16`, `dt=0.3` (first attempts) | 76.5 % |
 
-For scale the FSSH reference scores 28 % on the same metric.  `dt` is converged at χ=64
-(7.7 → 6.5 for `dt` 0.075 → 0.05) and Fock truncation is not the limiter (`nmax` 8 → 12 moves
-14.5 → 13.3), but **χ is not converged**: more χ makes the score *worse*, so 6.5 % is a
-configuration-specific value, not a certified accuracy.  Adding modes at fixed χ is harmful
-(N=40 → 44.9 %), i.e. χ must grow with N.
+For scale the FSSH reference scores 28 % on the same metric.  `dt` is converged at both bond
+dimensions (7.7 → 6.5 for `dt` 0.075 → 0.05 at χ=64; 14.5 → 10.9 at χ=128) and the Fock space is
+converged (`nmax` 8 → 12 moves 14.5 → 13.3), but **χ is not**: at fixed `dt=0.05` the score goes
+6.5 (χ=64) → 10.9 (χ=128), i.e. **more χ is worse**, so neither value is certified.  Adding modes at
+fixed χ is harmful (N=40 → 44.9 %), i.e. χ must grow with N.
 
 **The decisive parameter is `dt`, not χ.**  The star's highest mode is `ω_max ≈ 40`, so `dt=0.3`
 means `ω dt ≈ 12`; the per-step truncation then damps the fast modes and fabricates a "too fast
