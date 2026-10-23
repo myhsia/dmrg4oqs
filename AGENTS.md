@@ -49,9 +49,22 @@ Score with the house metric (`dmrg_error.py`, the shared `library/mre.py`): the 
 of `{Re P0, Re P1, Re C_xx, Re C_xy, Im C_xx, Im C_xy}` against HEOM over the config window,
 averaged and reported in percent.
 
-**Result (reference scenario, t ≤ 2):** star geometry, N=16, `nmax=8`, χ=64, **`dt=0.075`** gives
-**7.7 %** (per curve 5.0–10.8 %) — about four times better than the FSSH reference (28 %).  So the
-tDMRG reference *is* quantitative in this window.
+**Result (reference scenario, N=16, `nmax=8`, star, t ≤ 2):**
+
+| setting | mean |
+|---|---|
+| χ=64, `dt=0.05` | **6.5 %** |
+| χ=64, `dt=0.075` | 7.7 % |
+| χ=128, `dt=0.075`, `nmax=12` | 13.3 % |
+| χ=128, `dt=0.075`, `nmax=8` | 14.5 % |
+| N=40, χ=64, `dt=0.075` (t ≤ 4) | 44.9 % |
+| χ=96, `nmax=16`, `dt=0.3` (first attempts) | 76.5 % |
+
+For scale the FSSH reference scores 28 % on the same metric.  `dt` is converged at χ=64
+(7.7 → 6.5 for `dt` 0.075 → 0.05) and Fock truncation is not the limiter (`nmax` 8 → 12 moves
+14.5 → 13.3), but **χ is not converged**: more χ makes the score *worse*, so 6.5 % is a
+configuration-specific value, not a certified accuracy.  Adding modes at fixed χ is harmful
+(N=40 → 44.9 %), i.e. χ must grow with N.
 
 **The decisive parameter is `dt`, not χ.**  The star's highest mode is `ω_max ≈ 40`, so `dt=0.3`
 means `ω dt ≈ 12`; the per-step truncation then damps the fast modes and fabricates a "too fast
@@ -62,7 +75,8 @@ initial decay" that looks like a χ/`nmax`/thermal-state problem.  Measured at N
 |---|---|
 | 0.3 | 0.718 / 0.447 / 0.391 (wrong) |
 | 0.15 | 0.824 / 0.629 / 0.474 |
-| **0.075** | **0.874 / 0.598 / 0.467** |
+| 0.075 | 0.874 / 0.598 / 0.467 |
+| **0.05** | **0.861 / 0.620 / 0.467** |
 
 **Geometry.**  Prefer the **star** with a **per-mode `nmax`** (`-nmax` accepts a sequence): the star's
 thermal state is an exact product of per-mode TFDs (no imaginary-time preparation, which dominated
