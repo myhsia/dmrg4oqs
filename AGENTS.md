@@ -23,10 +23,14 @@ All code is under `source/`, the working directory for the drivers (paths such a
   (`t`, `y`, `identifier`).
 - `source/plot_dmrg.py` — writes `output/figures/dmrg@<prefix>.pdf` (legend bar, combined body,
   coherence body); overlays `*_heom.npz` when present.
-- `source/heom.py` — HEOM reference dynamics (qutip `HEOMSolver` for linear coupling; the extended
-  HEOM/DEOM in `library/extended_heom.py` for quadratic coupling), writing
+- `source/reference.py` — reference dynamics (qutip `HEOMSolver` for linear coupling; the extended
+  DEOM, i.e. the dissipaton hierarchy, in `library/extended_deom.py` for quadratic coupling), writing
   `output/data/<prefix>/{pop,cohe,cohem,corr,xorr}_heom.npz`.
-- `source/library/extended_heom.py` — extended HEOM for polynomial coupling.
+- `source/library/extended_deom.py` — extended DEOM (dissipaton) for polynomial coupling.  It is the
+  dissipaton equation of motion, not the standard HEOM: the hierarchy is stored in the
+  square-root-ladder normalisation so that magnitude filtering (`ferr`) can prune DDOs, the generator
+  is assembled from compressed edge lists, and the march is adaptive in chunks of output points.
+  `a2 = 0` reduces it to the linear HEOM.
 - `source/library/dmrg/` — `chain.py` (star→Lanczos chain, two-site TDVP, thermofield-double bath),
   `model.py` (star MPS, coupling MPO, per-mode squeezed classical state), `tdmrg.py` (shared
   observable extraction), `validation.py` (regression suite).
@@ -34,8 +38,8 @@ All code is under `source/`, the working directory for the drivers (paths such a
 
 ## Method
 
-- **HEOM.**  Linear coupling uses qutip's `OhmicEnvironment` + `HEOMSolver` (ESPIRA-I fit); quadratic
-  coupling uses the extended HEOM/DEOM (`extended_heom.py`).  `heom.py` runs the four cases for each
+- **HEOM / extended DEOM.**  Linear coupling uses qutip's `OhmicEnvironment` + `HEOMSolver` (ESPIRA-I fit); quadratic
+  coupling uses the extended DEOM (`extended_deom.py`).  `reference.py` runs the four cases for each
   config in its `RUNLIST` and writes the five `*_heom.npz` files.
 - **MPS / tDMRG.**  The star-shaped Ohmic bath (shared Gauss-Legendre discretization) is rotated to a
   one-dimensional chain by a Lanczos tridiagonalization (coupling vector as seed), so the system
@@ -99,8 +103,8 @@ so the mapping and the observable algebra are sound; `check_bath.py` measures th
 
 ## Shared pieces (mirrored from `mkct4oqs`)
 
-The **canonical** `source/heom.py`, `source/config/`, and
-`source/library/{qutils,fsutils,pltools,extended_heom}.py` live in the private `mkct4oqs`
+The **canonical** `source/reference.py`, `source/config/`, and
+`source/library/{qutils,fsutils,pltools,extended_deom}.py` live in the private `mkct4oqs`
 repository.  This
 repository keeps **synced copies** so that a public clone and the CI work without a token.
 
@@ -131,7 +135,7 @@ the companion's MKCT results.
 
 ```bash
 cd source
-python heom.py                             # HEOM reference -> output/data/<prefix>/
+python reference.py                             # HEOM reference -> output/data/<prefix>/
 python dmrg.py A-base_line                 # four cases -> output/data/A-base_line/
 python plot_dmrg.py A-base_line            # -> output/figures/dmrg@A-base_line.pdf
 python library/dmrg/validation.py          # regression suite
