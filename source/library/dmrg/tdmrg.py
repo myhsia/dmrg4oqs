@@ -121,7 +121,8 @@ def run_observables(epsilon, Delta, omega, c, beta, t, quantum=True, anharm2=0.0
         import tempfile
         from joblib import Parallel, delayed
         snapdir = tempfile.mkdtemp(prefix="dmrg_snap_")
-        threads = max(1, (os.cpu_count() or 1) // max(1, n_jobs))
+        threads = int(os.environ.get(
+            "DMRG_THREADS", max(1, (os.cpu_count() or 1) // max(1, n_jobs))))
         try:
             res = Parallel(n_jobs=n_jobs, inner_max_num_threads=threads)(
                 delayed(_evolve_one)(

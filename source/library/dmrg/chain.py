@@ -241,7 +241,11 @@ def run_observables(epsilon, Delta, omega, c, beta, t, quantum=True, anharm2=0.0
     dt = float(t[1] - t[0]) if dt is None else float(dt)
     if engine == "onesite":
         Engine = SingleSiteTDVPEngine
-        lanczos = {'expansion_dim': expansion_dim, 'N_max': 20}
+        # expansion_dim = 0 gives pure (fixed-chi) one-site TDVP, as in the
+        # reference protocol once the bond dimension is established.
+        lanczos = {'N_max': 20}
+        if expansion_dim:
+            lanczos['expansion_dim'] = expansion_dim
     else:
         Engine = TwoSiteTDVPEngine
         lanczos = {}
@@ -292,7 +296,8 @@ def run_observables(epsilon, Delta, omega, c, beta, t, quantum=True, anharm2=0.0
         snapdir = tempfile.mkdtemp(prefix="dmrg_snap_")
         # Only two states are independent, so n_jobs <= 2; give each worker its
         # share of the remaining cores so all of them stay busy (BLAS threads).
-        threads = max(1, (os.cpu_count() or 1) // max(1, n_jobs))
+        threads = int(os.environ.get(
+            "DMRG_THREADS", max(1, (os.cpu_count() or 1) // max(1, n_jobs))))
         try:
             res = Parallel(n_jobs=n_jobs, inner_max_num_threads=threads)(
                 delayed(_evolve_one)(
