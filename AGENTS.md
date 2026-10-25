@@ -91,8 +91,21 @@ its preparation is expensive and no better.
 
 **Window.**  With N modes the discrete bath correlation recurs at `t ≈ 2πN/w_max`; for N=16,
 `w_max=40` that is ≈2.5, so the reference is meaningful only up to `t ≈ 2` (the metric window is
-still the config's `tf`; `dmrg_error.py` warns when the series ends earlier).  A longer window needs
-larger N (N=40 → t ≈ 6).
+still the config's `tf`; `dmrg_error.py` warns when the series ends earlier).
+
+Pushing the recurrence out is **not** the way to extend it.  Measured, full window 0→12, same bath
+discretization and χ=64 (mean error, house metric):
+
+| run | qhm | qah | chm | cah |
+|---|---|---|---|---|
+| N=16, `dt=0.05`: 0–2.5 / 0–6 / 0–12 | 9.4 / 35.0 / 66.2 | 18.7 / 24.5 / 39.2 | 38.4 / 72.0 / 122.3 | 67.8 / 71.8 / 77.4 |
+| N=40, `dt=0.1`: 0–2.5 / 0–6 / 0–12 | 18.7 / 65.2 / 111.1 | 67.0 / 86.0 / 112.1 | 97.3 / 103.6 / 118.3 | 97.6 / 114.4 / 141.2 |
+
+N=40 is worse in *every* window and case — it collapses at `t≈2.2`, before its own recurrence at
+6.3 — because the extra modes add entanglement that χ=64 truncates harder.  So the late-time failure
+is **truncation, not the recurrence**: a converged 0–12 curve needs N≳80 *and* χ≳256 together, which
+is out of reach (N=40/χ=128/`dt=0.05` alone was ≈40 h).  The reference stays a short-time statement.
+
 
 **Classical cases.**  `chm`/`cah` collapse by `t ≈ 0.6` at every setting: the per-mode squeezed
 thermal state is not a Gibbs state, so they are not a quantitative reference and are **not plotted**.
