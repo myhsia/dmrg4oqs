@@ -3,7 +3,8 @@
 
 Reads ``output/data/<prefix>/{pop,cohe,cohem,corr,xorr}_dmrg_<case>.npz`` for
 ``qhm``/``qah``/``chm``/``cah`` and, when present, the HEOM reference
-``*_heom.npz``.  Writes ``output/figures/dmrg@<prefix>.pdf``: the legend bar,
+``corrmat_heom.npz`` (contracted with ``library/corrmat.py``).  Writes
+``output/figures/dmrg@<prefix>.pdf``: the legend bar,
 the combined population + Re/Im auto-/cross-correlation body, and the
 coherence +/- body.
 
@@ -17,7 +18,8 @@ sys.pycache_prefix = os.path.abspath("./output/pycache")
 
 from matplotlib.backends.backend_pdf import PdfPages
 from pltools import GridPlt, parse_xlims
-from fsutils import load_config, ensure_dir, load_npz
+from corrmat import observables
+from fsutils import load_config, ensure_dir, load_npz, load_group
 
 
 VARIANTS = {
@@ -36,8 +38,12 @@ def _suffix(name: str) -> str:
     return "heom" if name == "heom" else "dmrg_" + name
 
 
-def _load(directory: str, names: list) -> dict:
-    """Load each present observable per case (``pop`` as ``(t, y)``)."""
+def _load(directory: str, names: list, prefix: str) -> dict:
+    """Load each present observable per case (``pop`` as ``(t, y)``).
+
+    The HEOM reference is rebuilt from ``corrmat_heom.npz`` with the shared
+    contraction; the DMRG cases keep one archive per quantity.
+    """
     def path(stem, n):
         return directory + stem + "_" + _suffix(n) + ".npz"
 
@@ -46,6 +52,15 @@ def _load(directory: str, names: list) -> dict:
 
     out = {}
     for n in names:
+        if n == "heom":
+            t, C = load_group(directory + "corrmat_heom.npz")[0]["qhm"]
+            obs = observables(C)
+            out[n] = {"xorr": (t, obs["xorr"], YLIMS["xorr"]),
+                      "cohe+": (t, obs["cohe+"], YLIMS["cohe+"]),
+                      "cohe-": (t, obs["cohe-"], YLIMS["cohe-"]),
+                      "corr": (t, obs["corr"], YLIMS["corr"]),
+                      "pop": (t, obs["pop"].real)}
+            continue
         obs = {}
         for stem, key in (("xorr", "xorr"), ("cohe", "cohe+"), ("cohem", "cohe-")):
             if has(stem, n):
@@ -64,12 +79,12 @@ def main(prefix: str, cases = None, tmax = None) -> None:
     d = "./output/data/" + prefix + "/"
     wanted = CASES if not cases else [c for c in cases if c in CASES]
     names = [n for n in wanted if os.path.exists(d + "pop_" + _suffix(n) + ".npz")]
-    if os.path.exists(d + "pop_heom.npz"):
+    if os.path.exists(d + "corrmat_heom.npz"):
         names.append("heom")
     cases = [n for n in names if n != "heom"]
     if not cases:
         raise FileNotFoundError("no DMRG data in " + d)
-    obs = _load(d, names)
+    obs = _load(d, names, prefix)
 
     def have(key):
         return all(key in obs[n] for n in cases)
