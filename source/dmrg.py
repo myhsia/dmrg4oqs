@@ -8,7 +8,8 @@ sys.pycache_prefix = os.path.abspath("./output/pycache")
 from dmrg import chain
 from dmrg.tdmrg import run_observables as run_observables_star
 from qutils import ohmic_modes
-from fsutils import load_config, save_time
+from fsutils import load_config, save_group
+from corrmat import BASIS
 from pltools import parse_xlims
 
 
@@ -123,19 +124,11 @@ def main(prefix: str, quantum: bool = True, anharm: bool = False,
                                    save_state = state or None,
                                    n_jobs = n_jobs)
 
-    # 5. Save to npz
-    save_time(t, res["pop"],
-              outdir, "pop_" + tag + ".npz", identifier = "P", compress = True)
-    save_time(t, res["cohe_p"],
-              outdir, "cohe_" + tag + ".npz", identifier = "S+", compress = True)
-    save_time(t, res["cohe_m"],
-              outdir, "cohem_" + tag + ".npz", identifier = "S-", compress = True)
-    save_time(t, res["Cmu"],
-              outdir, "corr_" + tag + ".npz",
-              identifier = "⟨μ(t)μ(0)⟩", compress = True)
-    save_time(t, res["Cx"],
-              outdir, "xorr_" + tag + ".npz",
-              identifier = "⟨Sx(t)Sy(0)⟩", compress = True)
+    # 5. Save the basis correlation matrix (the observables are its
+    # contractions, rebuilt by plot_dmrg.py / dmrg_error.py).
+    save_group({case: (t, res["C"])}, outdir, "corrmat_" + tag + ".npz",
+               identifier = r"$\mathcal{C}(t)$", branch = BASIS,
+               component = BASIS, compress = True)
 
 
 RUNLIST = [

@@ -1,9 +1,9 @@
 # %%
 """Plot the tDMRG reference dynamics for one config.
 
-Reads ``output/data/<prefix>/{pop,cohe,cohem,corr,xorr}_dmrg_<case>.npz`` for
+Reads ``output/data/<prefix>/corrmat_dmrg_<case>.npz`` for
 ``qhm``/``qah``/``chm``/``cah`` and, when present, the HEOM reference
-``corrmat_heom.npz`` (contracted with ``library/corrmat.py``).  Writes
+``corrmat_heom.npz``, contracting both with ``library/corrmat.py``.  Writes
 ``output/figures/dmrg@<prefix>.pdf``: the legend bar,
 the combined population + Re/Im auto-/cross-correlation body, and the
 coherence +/- body.
@@ -19,7 +19,7 @@ sys.pycache_prefix = os.path.abspath("./output/pycache")
 from matplotlib.backends.backend_pdf import PdfPages
 from pltools import GridPlt, parse_xlims
 from corrmat import observables
-from fsutils import load_config, ensure_dir, load_npz, load_group
+from fsutils import load_config, ensure_dir, load_group
 
 
 VARIANTS = {
@@ -39,46 +39,35 @@ def _suffix(name: str) -> str:
 
 
 def _load(directory: str, names: list, prefix: str) -> dict:
-    """Load each present observable per case (``pop`` as ``(t, y)``).
+    """Load each case's correlation matrix and contract it to the observables.
 
-    The HEOM reference is rebuilt from ``corrmat_heom.npz`` with the shared
-    contraction; the DMRG cases keep one archive per quantity.
+    Both the tDMRG runs (``corrmat_dmrg_<case>.npz``) and the HEOM reference
+    (``corrmat_heom.npz``) store the same basis; the curves come from
+    ``library/corrmat.py``.
     """
-    def path(stem, n):
-        return directory + stem + "_" + _suffix(n) + ".npz"
-
-    def has(stem, n):
-        return os.path.exists(path(stem, n))
-
     out = {}
     for n in names:
         if n == "heom":
             t, C = load_group(directory + "corrmat_heom.npz")[0]["qhm"]
-            obs = observables(C)
-            out[n] = {"xorr": (t, obs["xorr"], YLIMS["xorr"]),
-                      "cohe+": (t, obs["cohe+"], YLIMS["cohe+"]),
-                      "cohe-": (t, obs["cohe-"], YLIMS["cohe-"]),
-                      "corr": (t, obs["corr"], YLIMS["corr"]),
-                      "pop": (t, obs["pop"].real)}
-            continue
-        obs = {}
-        for stem, key in (("xorr", "xorr"), ("cohe", "cohe+"), ("cohem", "cohe-")):
-            if has(stem, n):
-                t, y = load_npz(path(stem, n))
-                obs[key] = (t, y, YLIMS[key])
-        if has("corr", n):
-            t, y = load_npz(path("corr", n))
-            obs["corr"] = (t, y, YLIMS["corr"])
-        if has("pop", n):
-            obs["pop"] = load_npz(path("pop", n))
-        out[n] = obs
+        else:
+            path = directory + "corrmat_" + _suffix(n) + ".npz"
+            if not os.path.exists(path):
+                continue
+            t, C = load_group(path)[0][n]
+        obs = observables(C)
+        out[n] = {"xorr": (t, obs["xorr"], YLIMS["xorr"]),
+                  "cohe+": (t, obs["cohe+"], YLIMS["cohe+"]),
+                  "cohe-": (t, obs["cohe-"], YLIMS["cohe-"]),
+                  "corr": (t, obs["corr"], YLIMS["corr"]),
+                  "pop": (t, obs["pop"].real)}
     return out
 
 
 def main(prefix: str, cases = None, tmax = None) -> None:
     d = "./output/data/" + prefix + "/"
     wanted = CASES if not cases else [c for c in cases if c in CASES]
-    names = [n for n in wanted if os.path.exists(d + "pop_" + _suffix(n) + ".npz")]
+    names = [n for n in wanted
+             if os.path.exists(d + "corrmat_" + _suffix(n) + ".npz")]
     if os.path.exists(d + "corrmat_heom.npz"):
         names.append("heom")
     cases = [n for n in names if n != "heom"]

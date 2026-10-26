@@ -1,16 +1,14 @@
 # %%
 """Accuracy of the MPS/tDMRG references against HEOM.
 
-The metric is the one of the Padé-order scan (``library/mre.py``): over the
-calculation window ``[0, tf]`` of each config, the relative ``L2`` error of six
-curves
-
-    {Re P0, Re P1, Re C_xx, Re C_xy, Im C_xx, Im C_xy}
-
-against the HEOM reference, averaged over the six and reported in percent,
-``(E / n_obs) * 100``.  ``tf`` is the config window (forced, for comparability
-with the other references); a run whose series ends earlier is compared on the
-overlap only and a warning is emitted.
+The metric is the shared correlation-matrix error of ``library/mre.py``: over
+the calculation window ``[0, tf]`` of each config, the relative ``L2`` error of
+the 32 real series of the basis correlation matrix (real and imaginary parts of
+its 16 elements), each weighted equally, against the HEOM reference matrix and
+averaged over ``mre.N_CORRMAT = 32``, reported in percent ``(E / 32) * 100``.
+``tf`` is the config window (forced, for comparability with the other
+references); a run whose series ends earlier is compared on the overlap only
+and a warning is emitted.
 
 This is the runner; the algorithm is imported from the shared ``mre`` module.
 It writes ``output/dmrg_error.json`` (one value per config/case/label, each row
@@ -25,12 +23,10 @@ Usage::
 # %%
 # 1. Requirements
 import argparse, json, os, sys, warnings
-import numpy as np
 sys.path.append(os.path.join(os.path.dirname(__file__), "./library"))
 sys.pycache_prefix = os.path.abspath("./output/pycache")
 import mre as core
-from corrmat import observables
-from fsutils import load_config, load_npz, load_group, ensure_dir
+from fsutils import load_config, load_group, ensure_dir
 from pltools import parse_xlims
 
 
@@ -58,69 +54,45 @@ REF = os.environ.get("DMRG_REF_DATA", "../../mkct4oqs/source/output/data")
 JSON = "./output/dmrg_error.json"
 MD = "./output/dmrg_error.md"
 
-FLOOR = 5e-2        # ignore reference curves below this fraction of the largest
-
-
-def _series(prefix, case, quantity, label=""):
-    """``(t, y)`` of one observable for one (case, label)."""
+def _corrmat(prefix, case, label=""):
+    """``(t, C)`` of one tDMRG run, or ``None`` if the archive is absent."""
     d = "./output/data/" + prefix + "/"
     tag = f"dmrg_{case}" + (f"_{label}" if label else "")
-    return load_npz(d + f"{quantity}_{tag}.npz")
+    path = d + f"corrmat_{tag}.npz"
+    if not os.path.exists(path):
+        return None
+    return load_group(path)[0][case]
 
 
 def _ref(prefix):
-    """``(t, obs)`` of the HEOM reference, rebuilt from its correlation matrix."""
+    """``(t, C)`` of the HEOM reference correlation matrix."""
     path = os.path.join(REF, prefix) + os.sep + "corrmat_heom.npz"
-    t, C = load_group(path)[0]["qhm"]
-    return t, observables(C)
+    return load_group(path)[0]["qhm"]
 
 
 def error(prefix, case, label=""):
-    """``(mean relative error %, n_curves)``; None if the run is absent."""
-    d = "./output/data/" + prefix + "/"
-    tag = f"dmrg_{case}" + (f"_{label}" if label else "")
-    if not os.path.exists(d + f"pop_{tag}.npz"):
+    """``(mean relative error %, 32)``; None if the run is absent."""
+    got = _corrmat(prefix, case, label)
+    if got is None:
         return None
+    t, C = got
     tf = parse_xlims(load_config(prefix)["xlims"], reorder = True)[0][1]
-    th, ref = _ref(prefix)
+    th, Ch = _ref(prefix)
     if th[-1] < tf * (1.0 - 1e-6):
         warnings.warn(
             f"[{prefix}] the HEOM reference reaches t={th[-1]:g} but the "
             f"metric window is [0, {tf:g}] (config xlims); the missing range "
             f"cannot be scored.", stacklevel = 2)
-
-    t, pop = _series(prefix, case, "pop", label)
-    _, c = _series(prefix, case, "corr", label)
-    _, x = _series(prefix, case, "xorr", label)
     win = t <= tf * (1.0 + 1e-9)
     if t[win][-1] < tf * (1.0 - 1e-6):
         warnings.warn(
-            f"[{prefix}] {tag} reaches t={t[win][-1]:g} but the metric window "
-            f"is [0, {tf:g}]; the overlap is scored and the window recorded as "
-            f"{tf:g}.", stacklevel = 2)
-    t = t[win]
-    pop = pop[win]
-    c = c[win]
-    x = x[win]
-
+            f"[{prefix}] dmrg_{case} reaches t={t[win][-1]:g} but the metric "
+            f"window is [0, {tf:g}]; the overlap is scored and the window "
+            f"recorded as {tf:g}.", stacklevel = 2)
+    t, C = t[win], C[win]
     hw = th <= tf * (1.0 + 1e-9)
-    thw = th[hw]
-    cmu = core._interp(ref["corr"][hw], thw, t)
-    cx = core._interp(ref["xorr"][hw], thw, t)
-    pairs = [(pop[:, 0].real, np.interp(t, thw, ref["pop"][hw].real[:, 0])),
-             (pop[:, 1].real, np.interp(t, thw, ref["pop"][hw].real[:, 1])),
-             (c.real, cmu.real), (x.real, cx.real),
-             (c.imag, cmu.imag), (x.imag, cx.imag)]
-    # Curves that vanish by symmetry in the reference (e.g. Im C_xx for a
-    # biased system) carry no information and would blow the relative error up
-    # arbitrarily; drop those below FLOOR times the largest reference norm and
-    # average over the rest.
-    norms = [np.linalg.norm(b) for _, b in pairs]
-    keep = [np.linalg.norm(b) >= FLOOR * max(norms) for _, b in pairs]
-    if not any(keep):
-        return None
-    e = sum(core._rel(a, b) for (a, b), k in zip(pairs, keep) if k)
-    return 100.0 * e / sum(keep), sum(keep)
+    Cr = core._interp_mat(Ch[hw], th[hw], t)
+    return 100.0 * core._corrmat_error(C, Cr) / core.N_CORRMAT, core.N_CORRMAT
 
 
 def main():
@@ -156,9 +128,9 @@ def main():
     keys = [c if not label else f"{c}[{label}]"
             for label in args.labels for c in args.cases]
     lines = ["# MPS/tDMRG accuracy against HEOM", "",
-             "Metric `(E/n_obs)*100 %` over `[0, tf]` for "
-             "`{Re P0, Re P1, Re C_xx, Re C_xy, Im C_xx, Im C_xy}` "
-             "(`n_obs` after dropping curves that vanish by symmetry).", "",
+             "Metric `(E/32)*100 %` over `[0, tf]` of the 32 real series "
+             "of the basis correlation matrix (16 elements, real and imaginary "
+             "parts, each weighted equally).", "",
              "| config | " + " | ".join(keys) + " |",
              "|---|" + "---:|" * len(keys)]
     for prefix in args.configs:

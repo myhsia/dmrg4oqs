@@ -19,16 +19,16 @@ The spin-boson model with the four cases `QHM` (quantum harmonic), `QAH` (quantu
 The **classical** cases use a per-mode squeezed thermal state: the classical bath lies below the
 quantum zero-point and is not a Gibbs state.
 
-All five observables (populations, the two coherences, the auto- and cross-correlation) are obtained
-from just *two* MPS propagations, because every time-zero system operator is rank one.  With
-`|phi_b(t)> = U(t)|b>|TFD>` (`b = 0, 1`):
+The whole basis correlation matrix is obtained from just *two* MPS propagations.  With
+`|psi_b(t)> = U(t)|b>|TFD>` (`b = 0, 1`) and the Liouville basis
+`phi_j = |0><0|, |0><1|, |1><0|, |1><1|`:
 
-    pop_0   = <phi_0| P_0 |phi_0>,      pop_1   = <phi_0| P_1 |phi_0>,
-    cohe_+  = <phi_0| sigma_+ |phi_0>,  cohe_-  = <phi_0| sigma_- |phi_0>,
-    C_mu(t) = <phi_0| sigma_x |phi_1>          (normalized to C_mu(0) = 1),
-    C_x(t)  = <phi_chi| sigma_x |phi_{Ychi}>
+    C[:, j, k] = <psi_a| phi_j |psi_b>,   phi_k^dagger = |b><a|,
+    (a, b) = (0,0), (0,1), (1,0), (1,1)  for  k = 0, 1, 2, 3
 
-where the last reduces to four overlaps with fixed coefficients.
+(the diagonal columns are the state-0/1 expectations, the off-diagonal ones their cross
+overlaps).  The five reported observables are contractions of `C`
+(`source/library/corrmat.py`); in particular `C_mu = C_{1,1} + C_{2,1}`.
 
 ## HEOM
 

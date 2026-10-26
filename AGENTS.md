@@ -18,11 +18,12 @@ Scientific background and methodology are described in
 All code is under `source/`, the working directory for the drivers (paths such as `./config` and
 `./output` are relative to it):
 
-- `source/dmrg.py` — driver: for one config it runs the four bath cases and writes
-  `output/data/<prefix>/{pop,cohe,cohem,corr,xorr}_dmrg_<case>[-<tag>].npz` via `fsutils.save_time`
-  (`t`, `y`, `identifier`).
+- `source/dmrg.py` — driver: for one config it runs the four bath cases and writes the basis
+  correlation matrix `output/data/<prefix>/corrmat_dmrg_<case>[-<tag>].npz` via `save_group`
+  (key = case, `branch = component = ("00","01","10","11")`, `C(0) = I`).
 - `source/plot_dmrg.py` — writes `output/figures/dmrg@<prefix>.pdf` (legend bar, combined body,
-  coherence body); overlays the reference `corrmat_heom.npz` when present.
+  coherence body), contracting each `corrmat_dmrg_<case>.npz` and the reference
+  `corrmat_heom.npz` with `library/corrmat.py`.
 - `source/reference.py` — reference dynamics (qutip `HEOMSolver` for linear coupling; the extended
   DEOM, i.e. the dissipaton hierarchy, in `library/extended_deom.py` for quadratic coupling), writing
   only the basis correlation matrix `output/data/<prefix>/corrmat_heom.npz` (one `(t, C)` pair
@@ -46,15 +47,18 @@ All code is under `source/`, the working directory for the drivers (paths such a
 - **MPS / tDMRG.**  The star-shaped Ohmic bath (shared Gauss-Legendre discretization) is rotated to a
   one-dimensional chain by a Lanczos tridiagonalization (coupling vector as seed), so the system
   couples only to the first chain site; the finite-temperature bath is a thermofield-double
-  purification prepared by imaginary-time TDVP.  All five observables follow from two propagations
-  `|phi_b(t)> = U|b>|TFD>` (b = 0, 1), because every time-zero system operator is rank one.
+  purification prepared by imaginary-time TDVP.  The whole basis correlation matrix follows from
+  two propagations `|psi_b(t)> = U|b>|TFD>` (b = 0, 1): the diagonal columns are the state-0/1
+  expectations and the off-diagonal ones the cross overlaps (see `tdmrg._corrmat`); the five
+  reported observables are its contractions.
 
 ## Validity (measured, not assumed)
 
 Score with the house metric (`dmrg_error.py`, the shared `library/mre.py`): the relative `L2` error
-of `{Re P0, Re P1, Re C_xx, Re C_xy, Im C_xx, Im C_xy}` against HEOM over the config window,
-averaged over the six and reported in percent (`mre.N_OBS = 6`, the six-curve variant of the
-Padé-scan definition; the reference observables are rebuilt from `corrmat_heom.npz`).
+of the 32 real series of the basis correlation matrix (real and imaginary parts of its 16 elements,
+each weighted equally) against the HEOM reference matrix over the config window, averaged over
+`mre.N_CORRMAT = 32` and reported in percent.  The tabulated results below were measured with the
+retired six-observable variant, so they are not directly comparable with new 32-series scores.
 
 **Result (reference scenario, N=16, `nmax=8`, star, t ≤ 2):**
 

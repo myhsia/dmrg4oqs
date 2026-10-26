@@ -27,10 +27,11 @@ from tenpy.networks.site import SpinHalfSite
 from tenpy.models.lattice import Lattice
 from tenpy.models.model import CouplingModel, MPOModel
 from tenpy.networks.mps import MPS
+from corrmat import observables
 from tenpy.algorithms.tdvp import TwoSiteTDVPEngine, SingleSiteTDVPEngine
 
 from .model import _boson_site
-from .tdmrg import _CX
+from .tdmrg import _corrmat
 
 
 def lanczos_chain(omega, c):
@@ -178,18 +179,6 @@ def prepare_thermal(lat, model_prep, beta, chi=64, dtau=0.01, N=1, nmax=6):
     return psi
 
 
-def _measure(psi0, psi1):
-    """Local expectation values of state 0 plus the cross term M01."""
-    sz0 = psi0.expectation_value('Sigmaz', sites=[0])[0]
-    sx0 = psi0.expectation_value('Sigmax', sites=[0])[0]
-    sy0 = psi0.expectation_value('Sigmay', sites=[0])[0]
-    sx1 = psi1.expectation_value('Sigmax', sites=[0])[0]
-    tmp = psi1.copy()
-    tmp.apply_local_op(0, 'Sigmax', unitary=False)
-    M01 = psi0.overlap(tmp)
-    return sz0, sx0, sy0, sx1, M01
-
-
 def _evolve_one(b, psi_b, model_args, opts, t, snapdir, engine):
     """Evolve one of the two purified states, snapshotting it at every time.
 
@@ -274,20 +263,10 @@ def run_observables(epsilon, Delta, omega, c, beta, t, quantum=True, anharm2=0.0
             'start_time': t0, 'max_N_sites_per_ring': lat.N_sites,
             'lanczos_params': lanczos}
     nT = len(t)
-    pop = np.empty((nT, 2))
-    cop = np.empty(nT, complex)
-    com = np.empty(nT, complex)
-    cmu = np.empty(nT, complex)
-    cx = np.empty(nT, complex)
+    carr = np.empty((nT, 4, 4), dtype = complex)
 
-    def store(it, sz0, sx0, sy0, sx1, M01):
-        pop[it, 0] = (1.0 + sz0.real) / 2.0
-        pop[it, 1] = (1.0 - sz0.real) / 2.0
-        cop[it] = (sx0 + 1j * sy0) / 2.0
-        com[it] = (sx0 - 1j * sy0) / 2.0
-        M = np.array([[sx0, M01], [np.conj(M01), sx1]], dtype=complex)
-        cmu[it] = M01
-        cx[it] = np.sum(_CX * M)
+    def store(it, C):
+        carr[it] = C
 
     if n_jobs and n_jobs > 1:
         import shutil
@@ -309,10 +288,10 @@ def run_observables(epsilon, Delta, omega, c, beta, t, quantum=True, anharm2=0.0
                     p0 = pickle.load(f)
                 with open(snaps[1][it], "rb") as f:
                     p1 = pickle.load(f)
-                store(it, *_measure(p0, p1))
+                store(it, _corrmat(p0, p1))
                 if verbose:
                     print(f"  t={t[it]:.3f} chi={max(p0.chi)} "
-                          f"pop0={pop[it, 0]:.4f}", flush=True)
+                          f"pop0={carr[it, 0, 0].real:.4f}", flush=True)
             with open(snaps[0][-1], "rb") as f:
                 final0 = pickle.load(f)
             with open(snaps[1][-1], "rb") as f:
@@ -323,17 +302,17 @@ def run_observables(epsilon, Delta, omega, c, beta, t, quantum=True, anharm2=0.0
     else:
         eng = {b: Engine(psi[b], model, opts) for b in (0, 1)}
         for it in range(nT):
-            store(it, *_measure(psi[0], psi[1]))
+            store(it, _corrmat(psi[0], psi[1]))
             if verbose:
                 print(f"  t={t[it]:.3f} chi={max(psi[0].chi)} "
-                      f"pop0={pop[it, 0]:.4f}", flush=True)
+                      f"pop0={carr[it, 0, 0].real:.4f}", flush=True)
             if it < nT - 1:
                 for b in (0, 1):
                     eng[b].run()
-    if normalize_cmu and cmu[0] != 0:
-        cmu = cmu / cmu[0]
+    obs = observables(carr, normalize = bool(normalize_cmu))
     if save_state:
         os.makedirs(os.path.dirname(save_state) or ".", exist_ok=True)
         with open(save_state, "wb") as f:
             pickle.dump({"psi": psi, "time": float(t[-1] + dt)}, f)
-    return {'pop': pop, 'cohe_p': cop, 'cohe_m': com, 'Cmu': cmu, 'Cx': cx}
+    return {'C': carr, 'pop': obs['pop'].real, 'cohe_p': obs['cohe+'],
+            'cohe_m': obs['cohe-'], 'Cmu': obs['corr'], 'Cx': obs['xorr']}

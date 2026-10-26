@@ -1,48 +1,62 @@
-"""tDMRG time evolution and observables for the spin-boson model.
+"""tDMRG time evolution and the basis correlation matrix.
 
-All five observables (populations, coherences, and auto-/cross-correlations)
-are obtained from just *two* MPS evolutions.  Every initial (unnormalized)
-system operator is rank one, ``sigma_x |0><0| = |1><0|`` and
-``Y |chi><chi| = |Ychi><chi|``, and
-``|chi>``, ``|Ychi>`` are linear combinations of the two system basis states.
-Writing ``|phi_b(t)> = U(t) |b> |TFD>`` (``b = 0, 1``), one has
+Two MPS evolutions suffice: writing ``|psi_b(t)> = U(t) |b> |TFD>``
+(``b = 0, 1``), the basis correlation matrix in the Liouville basis
+``|0><0|, |0><1|, |1><0|, |1><1|`` is
 
-    pop_0   = <phi_0| P_0 |phi_0>,   pop_1 = <phi_0| P_1 |phi_0>,
-    cohe_+  = <phi_0| sigma_+ |phi_0>,  cohe_- = <phi_0| sigma_- |phi_0>,
-    C_mu(t) = <phi_0| sigma_x |phi_1>          (normalized to C_mu(0) = 1),
-    C_x(t)  = <phi_chi| sigma_x |phi_{Ychi}>
+    C[:, j, k] = <psi_a| phi_j |psi_b>,   phi_k^dagger = |b><a|,
 
-and the last reduces to the four overlaps ``M_ab = <phi_a| sigma_x |phi_b>``
-with fixed coefficients (see :data:`_CX`).
+with ``(a, b) = (0,0), (0,1), (1,0), (1,1)`` for ``k = 0, 1, 2, 3`` (the
+off-diagonal columns are the cross terms between the two states).  Every
+reported observable is a contraction of ``C`` (``library/corrmat.py``); in
+particular ``C_mu = C_{1,1} + C_{2,1}``.
 """
 import os, pickle
 import numpy as np
+
+from corrmat import observables
 
 from tenpy.algorithms.tdvp import TwoSiteTDVPEngine
 
 from .model import build_model, init_mps
 
-# Cx = sum_ab coeff_ab M_ab with M_ab = <phi_a| sigmax |phi_b>,
-# from |chi> = cos(pi/3)|0> + sin(pi/3)|1> and |Ychi> = -i sin(pi/3)|0> + i cos(pi/3)|1>.
-_S = np.sin(np.pi / 3.0)
-_C = np.cos(np.pi / 3.0)
-_CX = np.array([[-1j * _S * _C, 1j * _C ** 2],
-                [-1j * _S ** 2, 1j * _S * _C]], dtype=complex)
+# System basis operators phi_j = |i><k| of the correlation matrix.
+_PHI = (
+    np.array([[1, 0], [0, 0]], dtype = np.complex128),   # |0><0|
+    np.array([[0, 1], [0, 0]], dtype = np.complex128),   # |0><1|
+    np.array([[0, 0], [1, 0]], dtype = np.complex128),   # |1><0|
+    np.array([[0, 0], [0, 1]], dtype = np.complex128),   # |1><1|
+)
+# phi_j = c_I I + c_x sigma_x + c_y sigma_y + c_z sigma_z
+_PHI_COEF = ((0.5, 0.0, 0.0, 0.5), (0.0, 0.5, 0.5j, 0.0),
+             (0.0, 0.5, -0.5j, 0.0), (0.5, 0.0, 0.0, -0.5))
+# Column k of C: <phi_a| . |phi_b> with (a, b) below.
+_AB = ((0, 0), (0, 1), (1, 0), (1, 1))
 
 
-def _local_expect(psi):
-    return (psi.expectation_value('Sigmaz', sites=[0])[0],
-            psi.expectation_value('Sigmax', sites=[0])[0],
-            psi.expectation_value('Sigmay', sites=[0])[0])
+def _corrmat(psi0, psi1):
+    """Basis correlation matrix ``C_ij(t)`` from the two purified states.
 
-
-def _measure(psi0, psi1):
-    """Local expectation values of state 0 plus the cross term M01."""
-    sz0, sx0, sy0 = _local_expect(psi0)
-    sx1 = psi1.expectation_value('Sigmax', sites=[0])[0]
-    tmp = psi1.copy()
-    tmp.apply_local_op(0, 'Sigmax', unitary=False)
-    return sz0, sx0, sy0, sx1, psi0.overlap(tmp)
+    ``C[:, j, k] = <psi_a| phi_j |psi_b>`` with ``phi_k^dagger = |b><a|`` for
+    ``k = 0..3``; the diagonal columns use the two states and the off-diagonal
+    ones their cross overlaps (Hermiticity gives the conjugate direction).
+    """
+    X = {("I", 0, 0): 1.0, ("I", 1, 1): 1.0}
+    for a, bra in ((0, psi0), (1, psi1)):
+        for ax in "xyz":
+            X[(ax, a, a)] = bra.expectation_value("Sigma" + ax, sites = [0])[0]
+    for op in ("I", "x", "y", "z"):
+        tmp = psi1.copy()
+        if op != "I":
+            tmp.apply_local_op(0, "Sigma" + op, unitary = False)
+        X[(op, 0, 1)] = psi0.overlap(tmp)
+        X[(op, 1, 0)] = np.conj(X[(op, 0, 1)])
+    C = np.zeros((4, 4), dtype = np.complex128)
+    for k, (a, b) in enumerate(_AB):
+        for j, (cI, cx, cy, cz) in enumerate(_PHI_COEF):
+            C[j, k] = (cI * X[("I", a, b)] + cx * X[("x", a, b)]
+                       + cy * X[("y", a, b)] + cz * X[("z", a, b)])
+    return C
 
 
 def _evolve_one(b, psi_b, model_args, opts, t, snapdir):
@@ -69,10 +83,11 @@ def run_observables(epsilon, Delta, omega, c, beta, t, quantum=True, anharm2=0.0
                     nmax=6, chi=128, dt=None, verbose=False,
                     t0=None, state=None, save_state=None, normalize_cmu=None,
                     n_jobs=1):
-    """Evolve the spin-boson MPS and return the five observables.
+    """Evolve the spin-boson MPS and return the correlation matrix.
 
-    Returns a dict with ``pop`` (nT, 2 real), ``cohe_p``, ``cohe_m``,
-    ``Cmu`` (normalized) and ``Cx`` (nT complex).
+    Returns a dict with ``C`` (nT, 4, 4) and, for convenience, its five
+    contractions ``pop`` (nT, 2 real), ``cohe_p``, ``cohe_m``, ``Cmu``
+    (normalized) and ``Cx`` (nT complex), via ``library/corrmat.py``.
 
     Segment support: if ``state`` exists it is a pickled ``{"psi", "time"}``
     checkpoint that is resumed (the time is taken from the file); at the end
@@ -101,20 +116,10 @@ def run_observables(epsilon, Delta, omega, c, beta, t, quantum=True, anharm2=0.0
         'max_N_sites_per_ring': lat.N_sites,
     }
     nT = len(t)
-    pop = np.empty((nT, 2))
-    cop = np.empty(nT, complex)
-    com = np.empty(nT, complex)
-    cmu = np.empty(nT, complex)
-    cx = np.empty(nT, complex)
+    carr = np.empty((nT, 4, 4), dtype = complex)
 
-    def store(it, sz0, sx0, sy0, sx1, M01):
-        pop[it, 0] = (1.0 + sz0.real) / 2.0
-        pop[it, 1] = (1.0 - sz0.real) / 2.0
-        cop[it] = (sx0 + 1j * sy0) / 2.0
-        com[it] = (sx0 - 1j * sy0) / 2.0
-        M = np.array([[sx0, M01], [np.conj(M01), sx1]], dtype=complex)
-        cmu[it] = M01
-        cx[it] = np.sum(_CX * M)
+    def store(it, C):
+        carr[it] = C
 
     if n_jobs and n_jobs > 1:
         import shutil
@@ -134,10 +139,10 @@ def run_observables(epsilon, Delta, omega, c, beta, t, quantum=True, anharm2=0.0
                     p0 = pickle.load(f)
                 with open(snaps[1][it], "rb") as f:
                     p1 = pickle.load(f)
-                store(it, *_measure(p0, p1))
+                store(it, _corrmat(p0, p1))
                 if verbose:
                     print(f"  t={t[it]:.3f} chi={max(p0.chi)} "
-                          f"pop0={pop[it, 0]:.4f}", flush=True)
+                          f"pop0={carr[it, 0, 0].real:.4f}", flush=True)
             with open(snaps[0][-1], "rb") as f:
                 final0 = pickle.load(f)
             with open(snaps[1][-1], "rb") as f:
@@ -148,17 +153,17 @@ def run_observables(epsilon, Delta, omega, c, beta, t, quantum=True, anharm2=0.0
     else:
         eng = {b: TwoSiteTDVPEngine(psi[b], model, opts) for b in (0, 1)}
         for it in range(nT):
-            store(it, *_measure(psi[0], psi[1]))
+            store(it, _corrmat(psi[0], psi[1]))
             if verbose:
                 print(f"  t={t[it]:.3f} chi={max(psi[0].chi)} "
-                      f"pop0={pop[it, 0]:.4f}", flush=True)
+                      f"pop0={carr[it, 0, 0].real:.4f}", flush=True)
             if it < nT - 1:
                 for b in (0, 1):
                     eng[b].run()
-    if normalize_cmu and cmu[0] != 0:
-        cmu = cmu / cmu[0]
+    obs = observables(carr, normalize = bool(normalize_cmu))
     if save_state:
         os.makedirs(os.path.dirname(save_state) or ".", exist_ok=True)
         with open(save_state, "wb") as f:
             pickle.dump({"psi": psi, "time": float(t[-1] + dt)}, f)
-    return {'pop': pop, 'cohe_p': cop, 'cohe_m': com, 'Cmu': cmu, 'Cx': cx}
+    return {'C': carr, 'pop': obs['pop'].real, 'cohe_p': obs['cohe+'],
+            'cohe_m': obs['cohe-'], 'Cmu': obs['corr'], 'Cx': obs['xorr']}
