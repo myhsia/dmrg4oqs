@@ -86,8 +86,8 @@ jobs:
       - name: Set up the dmrg environment
         uses: ./.github/actions/dmrg-env
 
-      - name: Import HEOM
+      - name: Import the reference solver
         working-directory: source
         run: |
           conda activate dmrg
-          python -c "import heom; print('heom import OK')"
+          python -c "import reference; print('reference (HEOM/extDEOM) import OK')"
