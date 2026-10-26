@@ -29,7 +29,8 @@ import numpy as np
 sys.path.append(os.path.join(os.path.dirname(__file__), "./library"))
 sys.pycache_prefix = os.path.abspath("./output/pycache")
 import mre as core
-from fsutils import load_config, load_npz, ensure_dir
+from corrmat import observables
+from fsutils import load_config, load_npz, load_group, ensure_dir
 from pltools import parse_xlims
 
 
@@ -67,9 +68,11 @@ def _series(prefix, case, quantity, label=""):
     return load_npz(d + f"{quantity}_{tag}.npz")
 
 
-def _heom(prefix, quantity):
-    d = os.path.join(REF, prefix) + os.sep
-    return load_npz(d + f"{quantity}_heom.npz")
+def _ref(prefix):
+    """``(t, obs)`` of the HEOM reference, rebuilt from its correlation matrix."""
+    path = os.path.join(REF, prefix) + os.sep + "corrmat_heom.npz"
+    t, C = load_group(path)[0]["qhm"]
+    return t, observables(C)
 
 
 def error(prefix, case, label=""):
@@ -79,9 +82,7 @@ def error(prefix, case, label=""):
     if not os.path.exists(d + f"pop_{tag}.npz"):
         return None
     tf = parse_xlims(load_config(prefix)["xlims"], reorder = True)[0][1]
-    th, yh = _heom(prefix, "pop")
-    _, yc = _heom(prefix, "corr")
-    _, yx = _heom(prefix, "xorr")
+    th, ref = _ref(prefix)
     if th[-1] < tf * (1.0 - 1e-6):
         warnings.warn(
             f"[{prefix}] the HEOM reference reaches t={th[-1]:g} but the "
@@ -103,10 +104,11 @@ def error(prefix, case, label=""):
     x = x[win]
 
     hw = th <= tf * (1.0 + 1e-9)
-    cmu = core._interp(yc[hw], th[hw], t)
-    cx = core._interp(yx[hw], th[hw], t)
-    pairs = [(pop[:, 0].real, np.interp(t, th[hw], yh[hw][:, 0].real)),
-             (pop[:, 1].real, np.interp(t, th[hw], yh[hw][:, 1].real)),
+    thw = th[hw]
+    cmu = core._interp(ref["corr"][hw], thw, t)
+    cx = core._interp(ref["xorr"][hw], thw, t)
+    pairs = [(pop[:, 0].real, np.interp(t, thw, ref["pop"][hw].real[:, 0])),
+             (pop[:, 1].real, np.interp(t, thw, ref["pop"][hw].real[:, 1])),
              (c.real, cmu.real), (x.real, cx.real),
              (c.imag, cmu.imag), (x.imag, cx.imag)]
     # Curves that vanish by symmetry in the reference (e.g. Im C_xx for a

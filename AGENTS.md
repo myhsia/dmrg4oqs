@@ -22,10 +22,11 @@ All code is under `source/`, the working directory for the drivers (paths such a
   `output/data/<prefix>/{pop,cohe,cohem,corr,xorr}_dmrg_<case>[-<tag>].npz` via `fsutils.save_time`
   (`t`, `y`, `identifier`).
 - `source/plot_dmrg.py` — writes `output/figures/dmrg@<prefix>.pdf` (legend bar, combined body,
-  coherence body); overlays `*_heom.npz` when present.
+  coherence body); overlays the reference `corrmat_heom.npz` when present.
 - `source/reference.py` — reference dynamics (qutip `HEOMSolver` for linear coupling; the extended
   DEOM, i.e. the dissipaton hierarchy, in `library/extended_deom.py` for quadratic coupling), writing
-  `output/data/<prefix>/{pop,cohe,cohem,corr,xorr}_heom.npz`.
+  only the basis correlation matrix `output/data/<prefix>/corrmat_heom.npz` (one `(t, C)` pair
+  under `qhm`); the five observables are contractions of it (`library/corrmat.py`).
 - `source/library/extended_deom.py` — extended DEOM (dissipaton) for polynomial coupling.  It is the
   dissipaton equation of motion, not the standard HEOM: the hierarchy is stored in the
   square-root-ladder normalisation so that magnitude filtering (`ferr`) can prune DDOs, the generator
@@ -39,8 +40,9 @@ All code is under `source/`, the working directory for the drivers (paths such a
 ## Method
 
 - **HEOM / extended DEOM.**  Linear coupling uses qutip's `OhmicEnvironment` + `HEOMSolver` (ESPIRA-I fit); quadratic
-  coupling uses the extended DEOM (`extended_deom.py`).  `reference.py` runs the four cases for each
-  config in its `RUNLIST` and writes the five `*_heom.npz` files.
+  coupling uses the extended DEOM (`extended_deom.py`).  `reference.py` runs each config in its
+  `RUNLIST` and writes the single `corrmat_heom.npz` (the harmonic reference shared by the four
+  cases).
 - **MPS / tDMRG.**  The star-shaped Ohmic bath (shared Gauss-Legendre discretization) is rotated to a
   one-dimensional chain by a Lanczos tridiagonalization (coupling vector as seed), so the system
   couples only to the first chain site; the finite-temperature bath is a thermofield-double
@@ -51,7 +53,8 @@ All code is under `source/`, the working directory for the drivers (paths such a
 
 Score with the house metric (`dmrg_error.py`, the shared `library/mre.py`): the relative `L2` error
 of `{Re P0, Re P1, Re C_xx, Re C_xy, Im C_xx, Im C_xy}` against HEOM over the config window,
-averaged and reported in percent.
+averaged over the six and reported in percent (`mre.N_OBS = 6`, the six-curve variant of the
+Padé-scan definition; the reference observables are rebuilt from `corrmat_heom.npz`).
 
 **Result (reference scenario, N=16, `nmax=8`, star, t ≤ 2):**
 
@@ -117,7 +120,7 @@ so the mapping and the observable algebra are sound; `check_bath.py` measures th
 ## Shared pieces (mirrored from `mkct4oqs`)
 
 The **canonical** `source/reference.py`, `source/config/`, and
-`source/library/{qutils,fsutils,pltools,extended_deom}.py` live in the private `mkct4oqs`
+`source/library/{qutils,fsutils,pltools,extended_deom,mre,corrmat}.py` live in the private `mkct4oqs`
 repository.  This
 repository keeps **synced copies** so that a public clone and the CI work without a token.
 
@@ -126,7 +129,8 @@ repository keeps **synced copies** so that a public clone and the CI work withou
 > and needs the same sync.
 
 `fsutils.py` also carries the grouped-archive writer/loader (`save_group`/`load_group`) used by
-the companion's MKCT results.
+the reference (`corrmat_heom.npz`) and the companion's MKCT results; `corrmat.py` contracts the
+matrix into the five observables.
 
 ## Conventions
 
@@ -148,7 +152,7 @@ the companion's MKCT results.
 
 ```bash
 cd source
-python reference.py                             # HEOM reference -> output/data/<prefix>/
+python reference.py                             # reference corrmat -> output/data/<prefix>/
 python dmrg.py A-base_line                 # four cases -> output/data/A-base_line/
 python plot_dmrg.py A-base_line            # -> output/figures/dmrg@A-base_line.pdf
 python library/dmrg/validation.py          # regression suite

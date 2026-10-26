@@ -35,8 +35,10 @@ where the last reduces to four overlaps with fixed coefficients.
 - Linear coupling: qutip's `OhmicEnvironment` + `HEOMSolver` (ESPIRA-I fit).
 - Quadratic coupling: the extended DEOM in
   `source/library/extended_deom.py`.
-- `source/reference.py` runs the four cases for each config in its `RUNLIST` and writes
-  `output/data/<prefix>/{pop,cohe,cohem,corr,xorr}_heom.npz` (the shared `save_time` schema).
+- `source/reference.py` runs each config in its `RUNLIST` and writes only the basis correlation
+  matrix `output/data/<prefix>/corrmat_heom.npz` (one `(t, C)` pair under `qhm`, the shared
+  `save_group` schema, `C(0) = I`); the five observables are contractions of it
+  (`source/library/corrmat.py`).
 
 ## MPS / tDMRG
 
@@ -47,7 +49,7 @@ where the last reduces to four overlaps with fixed coefficients.
   (`-engine onesite`) is numerically wrong (it oscillates/collapses); do not use it.
 - `source/dmrg.py` writes `output/data/<prefix>/*_dmrg_<case>.npz`;
   `source/plot_dmrg.py` writes `output/figures/dmrg@<prefix>.pdf` (legend bar, combined
-  body, coherence body) and overlays `*_heom.npz` when present.
+  body, coherence body) and overlays the reference `corrmat_heom.npz` when present.
 - `library/dmrg/` holds `chain.py` (chain mapping, thermal state, TDVP), `model.py`, `tdmrg.py`
   (observable extraction) and `validation.py`.
 
