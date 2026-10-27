@@ -54,11 +54,22 @@ def _boson_site(nmax, with_ops=True):
     return b
 
 
+def _nmax_list(nmax, N):
+    """Per-mode Fock truncation; ``nmax`` may be an int or a length-``N`` sequence."""
+    if np.isscalar(nmax):
+        return [int(nmax)] * N
+    s = [int(x) for x in nmax]
+    if len(s) != N:
+        raise ValueError(f"nmax sequence must have length N={N}, got {len(s)}")
+    return s
+
+
 def make_sites(omega, nmax):
+    nm = _nmax_list(nmax, len(omega))
     sites = [SpinHalfSite(conserve=None)]
-    for _ in omega:
-        sites.append(_boson_site(nmax, with_ops=True))
-        sites.append(_boson_site(nmax, with_ops=False))
+    for j, _ in enumerate(omega):
+        sites.append(_boson_site(nm[j], with_ops=True))
+        sites.append(_boson_site(nm[j], with_ops=False))
     return sites
 
 
@@ -139,12 +150,14 @@ def init_mps(lat, omega, beta, nmax, sys_state=0, quantum=True):
     bs = np.zeros((2, 1, 1), complex)
     bs[sys_state, 0, 0] = 1.0
     Bflat.append(bs)
+    nm = _nmax_list(nmax, len(omega))
     for j in range(len(omega)):
-        pair = _pair_tensor(omega[j], beta, nmax, quantum=quantum)
-        Bp = np.zeros((nmax + 1, 1, nmax + 1), complex)
+        n_j = nm[j]
+        pair = _pair_tensor(omega[j], beta, n_j, quantum=quantum)
+        Bp = np.zeros((n_j + 1, 1, n_j + 1), complex)
         Bp[:, 0, :] = pair
-        Ba = np.zeros((nmax + 1, nmax + 1, 1), complex)
-        for n in range(nmax + 1):
+        Ba = np.zeros((n_j + 1, n_j + 1, 1), complex)
+        for n in range(n_j + 1):
             Ba[n, n, 0] = 1.0
         Bflat.append(Bp)
         Bflat.append(Ba)

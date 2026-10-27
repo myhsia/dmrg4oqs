@@ -23,7 +23,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "./library"))
 sys.pycache_prefix = os.path.abspath("./output/pycache")
 
 import numpy as np
-from tenpy.algorithms.tdvp import TwoSiteTDVPEngine
+from tenpy.algorithms.tdvp import TwoSiteTDVPEngine, SingleSiteTDVPEngine
 
 from dmrg import chain
 from qutils import ohmic_modes
@@ -35,7 +35,7 @@ def _weights(om):
     return 0.5 / np.tanh(BETA * om / 2.0)
 
 
-def check(N=16, nmax=16, chi=96, tf=1.5, dt=0.3, dtau=0.02):
+def check(N=16, nmax=16, chi=96, tf=1.5, dt=0.3, dtau=0.02, engine='twosite'):
     om, cc = ohmic_modes(0.4, 4.0, N=N, wmax_factor=10)
     Om, kappa, gc = chain.chain_params(om, cc)
     lat, model_real, model_prep, NN = chain.build_models(
@@ -46,14 +46,16 @@ def check(N=16, nmax=16, chi=96, tf=1.5, dt=0.3, dtau=0.02):
     static_exact = float(np.sum(cc ** 2 * w))
     static = gc ** 2 * bath.expectation_value('q q', sites=[1])[0].real
 
+    Engine = SingleSiteTDVPEngine if engine == 'onesite' else TwoSiteTDVPEngine
     opts = {'dt': dt, 'N_steps': 1, 'preserve_norm': True,
             'trunc_params': {'chi_max': chi, 'svd_min': 1e-13},
-            'start_time': 0.0, 'max_N_sites_per_ring': lat.N_sites}
+            'start_time': 0.0, 'max_N_sites_per_ring': lat.N_sites,
+            'lanczos_params': {'N_max': 20}}
     psi = bath.copy()
     phi = bath.copy()
     phi.apply_local_op(1, 'q', unitary=False)      # q |Psi(0)>, unnormalised
-    eng_p = TwoSiteTDVPEngine(psi, model_prep, opts)
-    eng_f = TwoSiteTDVPEngine(phi, model_prep, opts)
+    eng_p = Engine(psi, model_prep, opts)
+    eng_f = Engine(phi, model_prep, opts)
     t = np.linspace(0.0, tf, int(round(tf / dt)) + 1)
     corr = np.empty(len(t), complex)
     for it in range(len(t)):
@@ -75,10 +77,13 @@ def main():
     p.add_argument("-chi", type=int, default=96)
     p.add_argument("-tf", type=float, default=1.5)
     p.add_argument("-dt", type=float, default=0.3)
+    p.add_argument("-dtau", type=float, default=0.02)
+    p.add_argument("-engine", choices=["twosite", "onesite"], default="twosite")
     a = p.parse_args()
 
-    static, exact0, t, corr, ref, err = check(a.N, a.nmax, a.chi, a.tf, a.dt)
-    print(f"N={a.N} nmax={a.nmax} chi={a.chi} tf={a.tf}")
+    static, exact0, t, corr, ref, err = check(a.N, a.nmax, a.chi, a.tf, a.dt,
+                                              a.dtau, a.engine)
+    print(f"N={a.N} nmax={a.nmax} chi={a.chi} tf={a.tf} dtau={a.dtau} engine={a.engine}")
     print(f"  static <Q^2> = {static:.3f} / {exact0:.3f} = {100*static/exact0:.1f}%")
     print(f"  correlation relative error = {err:.3f}")
     np.set_printoptions(precision=3, suppress=True)
