@@ -57,8 +57,7 @@ All code is under `source/`, the working directory for the drivers (paths such a
 Score with the house metric (`dmrg_error.py`, the shared `library/mre.py`): the relative `L2` error
 of the 32 real series of the basis correlation matrix (real and imaginary parts of its 16 elements,
 each weighted equally) against the HEOM reference matrix over the config window, averaged over
-`mre.N_CORRMAT = 32` and reported in percent.  The tabulated results below were measured with the
-retired six-observable variant, so they are not directly comparable with new 32-series scores.
+`mre.N_CORRMAT = 32` and reported in percent.
 
 **Result (reference scenario, N=16, `nmax=8`, star, t ≤ 2):**
 
