@@ -54,10 +54,11 @@ All code is under `source/`, the working directory for the drivers (paths such a
 
 ## Validity (measured, not assumed)
 
-Score with the house metric (`dmrg_error.py`, the shared `library/mre.py`): the relative `L2` error
-of the 32 real series of the basis correlation matrix (real and imaginary parts of its 16 elements,
-each weighted equally) against the HEOM reference matrix over the config window, averaged over
-`mre.N_CORRMAT = 32` and reported in percent.
+Score with the house metric (`dmrg_error.py`, the shared `library/mre.py`): the global relative
+Frobenius error `||C - C'||_F / ||C'||_F` of the basis correlation matrix (all 16 complex
+elements) against the HEOM reference matrix over the config window, reported in percent.
+The tabulated numbers below predate this metric (they were measured with the previous
+32-series definition), so re-run `dmrg_error.py` to refresh them.
 
 **Result (reference scenario, N=16, `nmax=8`, star, t ≤ 2):**
 
