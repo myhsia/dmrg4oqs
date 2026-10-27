@@ -5,6 +5,6 @@ channels:
 dependencies:
   # Keep the interpreter pin in step with the private `mkct` repository's
   # source/environment.yaml (the DMRG reference is developed alongside it).
-  - python=3.15.1
+  - python=3.15
   - pip:
     - -r requirements.txt   # unpinned: always the latest
