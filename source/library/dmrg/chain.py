@@ -157,7 +157,9 @@ def _infinite_T_mps(lat, N, nmax):
         for n in range(d):
             Ba[n, n, 0] = 1.0
         Bflat += [Bp, Ba]
-    return MPS.from_Bflat(lat.mps_sites(), Bflat, bc='finite', dtype=complex)
+    return MPS.from_Bflat(lat.mps_sites(), Bflat, bc='finite',
+                          unit_cell_width=lat.mps_unit_cell_width,
+                          dtype=complex)
 
 
 def prepare_thermal(lat, model_prep, beta, chi=64, dtau=0.01, N=1, nmax=6):

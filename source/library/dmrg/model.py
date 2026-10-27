@@ -161,4 +161,6 @@ def init_mps(lat, omega, beta, nmax, sys_state=0, quantum=True):
             Ba[n, n, 0] = 1.0
         Bflat.append(Bp)
         Bflat.append(Ba)
-    return MPS.from_Bflat(lat.mps_sites(), Bflat, bc='finite', dtype=complex)
+    return MPS.from_Bflat(lat.mps_sites(), Bflat, bc='finite',
+                          unit_cell_width=lat.mps_unit_cell_width,
+                          dtype=complex)
