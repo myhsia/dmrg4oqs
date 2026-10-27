@@ -2,10 +2,9 @@
 """Accuracy of the MPS/tDMRG references against HEOM.
 
 The metric is the shared correlation-matrix error of ``library/mre.py``: over
-the calculation window ``[0, tf]`` of each config, the relative ``L2`` error of
-the 32 real series of the basis correlation matrix (real and imaginary parts of
-its 16 elements), each weighted equally, against the HEOM reference matrix and
-averaged over ``mre.N_CORRMAT = 32``, reported in percent ``(E / 32) * 100``.
+the calculation window ``[0, tf]`` of each config, the global relative Frobenius
+error ``E = ||C - C'||_F / ||C'||_F`` of the basis correlation matrix (all 16
+complex elements) against the HEOM reference matrix, reported in percent.
 ``tf`` is the config window (forced, for comparability with the other
 references); a run whose series ends earlier is compared on the overlap only
 and a warning is emitted.
@@ -71,7 +70,7 @@ def _ref(prefix):
 
 
 def error(prefix, case, label=""):
-    """``(mean relative error %, 32)``; None if the run is absent."""
+    """Relative Frobenius error (percent); None if the run is absent."""
     got = _corrmat(prefix, case, label)
     if got is None:
         return None
@@ -92,7 +91,7 @@ def error(prefix, case, label=""):
     t, C = t[win], C[win]
     hw = th <= tf * (1.0 + 1e-9)
     Cr = core._interp_mat(Ch[hw], th[hw], t)
-    return 100.0 * core._corrmat_error(C, Cr) / core.N_CORRMAT, core.N_CORRMAT
+    return 100.0 * core._corrmat_error(C, Cr)
 
 
 def main():
@@ -112,7 +111,7 @@ def main():
                 if got is None:
                     continue
                 key = c if not label else f"{c}[{label}]"
-                rows[key] = {"E": float(got[0]), "n_obs": int(got[1]),
+                rows[key] = {"E": float(got),
                              "tf": float(parse_xlims(
                                  load_config(prefix)["xlims"],
                                  reorder = True)[0][1])}
@@ -128,9 +127,9 @@ def main():
     keys = [c if not label else f"{c}[{label}]"
             for label in args.labels for c in args.cases]
     lines = ["# MPS/tDMRG accuracy against HEOM", "",
-             "Metric `(E/32)*100 %` over `[0, tf]` of the 32 real series "
-             "of the basis correlation matrix (16 elements, real and imaginary "
-             "parts, each weighted equally).", "",
+             "Metric: the global relative Frobenius error "
+             "`E = ||C - C'||_F / ||C'||_F` over `[0, tf]` of the basis "
+             "correlation matrix (all 16 complex elements), in percent.", "",
              "| config | " + " | ".join(keys) + " |",
              "|---|" + "---:|" * len(keys)]
     for prefix in args.configs:
