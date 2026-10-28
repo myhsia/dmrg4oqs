@@ -23,9 +23,9 @@ All code is under `source/`, the working directory for the drivers (paths such a
   `-case all` run, the grouped `corrmat_dmrg.npz` (one matrix per case,
   `branch = component = ("00","01","10","11")`, `C(0) = I`).
 - `source/FIG0@corrmat.py`, `source/FIG4@robustness.py` — synced copies of the canonical
-  figure scripts: `python FIG0@corrmat.py -method dmrg -ref ../../mkct4oqs/source/output/data`
-  draws the 4x4 `C_ij(t)` pages and
-  `python FIG4@robustness.py -group dmrg -ref ../../mkct4oqs/source/output/data` the
+  figure scripts: `python FIG0@corrmat.py -ref ../../mkct4oqs/source/output/data` draws the
+  4x4 `C_ij(t)` pages of every method found here and
+  `python FIG4@robustness.py -ref ../../mkct4oqs/source/output/data` the
   `dmrg@<prefix>.pdf` comparison figure (replacing the retired `plot_dmrg.py`).
 - `source/reference.py` — reference dynamics (qutip `HEOMSolver` for linear coupling; the extended
   DEOM, i.e. the dissipaton hierarchy, in `library/extended_deom.py` for quadratic coupling), writing
@@ -161,8 +161,8 @@ matrix into the five observables.
 cd source
 python reference.py                             # reference corrmat -> output/data/<prefix>/
 python dmrg.py A-base_line                 # four cases -> output/data/A-base_line/
-python FIG0@corrmat.py -method dmrg -ref ../../mkct4oqs/source/output/data
-python FIG4@robustness.py -group dmrg -ref ../../mkct4oqs/source/output/data
+python FIG0@corrmat.py -ref ../../mkct4oqs/source/output/data
+python FIG4@robustness.py -ref ../../mkct4oqs/source/output/data
 python library/dmrg/validation.py          # regression suite
 ```
 
