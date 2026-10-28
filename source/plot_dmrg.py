@@ -34,11 +34,13 @@ YLIMS = {"corr": [-1, 1, 2], "xorr": [-1, 1, 2],
          "cohe+": [-.5, .5, 2], "cohe-": [-.5, .5, 2]}
 
 
-def _suffix(name: str) -> str:
-    return "heom" if name == "heom" else "dmrg_" + name
+def _suffix(name: str, label: str = "") -> str:
+    if name == "heom":
+        return "heom"
+    return "dmrg_" + name + (f"_{label}" if label else "")
 
 
-def _load(directory: str, names: list, prefix: str) -> dict:
+def _load(directory: str, names: list, prefix: str, label: str = "") -> dict:
     """Load each case's correlation matrix and contract it to the observables.
 
     Both the tDMRG runs (``corrmat_dmrg_<case>.npz``) and the HEOM reference
@@ -50,7 +52,7 @@ def _load(directory: str, names: list, prefix: str) -> dict:
         if n == "heom":
             t, C = load_group(directory + "corrmat_heom.npz")[0]["qhm"]
         else:
-            path = directory + "corrmat_" + _suffix(n) + ".npz"
+            path = directory + "corrmat_" + _suffix(n, label) + ".npz"
             if not os.path.exists(path):
                 continue
             t, C = load_group(path)[0][n]
@@ -63,17 +65,17 @@ def _load(directory: str, names: list, prefix: str) -> dict:
     return out
 
 
-def main(prefix: str, cases = None, tmax = None) -> None:
+def main(prefix: str, cases = None, tmax = None, label = None) -> None:
     d = "./output/data/" + prefix + "/"
     wanted = CASES if not cases else [c for c in cases if c in CASES]
     names = [n for n in wanted
-             if os.path.exists(d + "corrmat_" + _suffix(n) + ".npz")]
+             if os.path.exists(d + "corrmat_" + _suffix(n, label or "") + ".npz")]
     if os.path.exists(d + "corrmat_heom.npz"):
         names.append("heom")
     cases = [n for n in names if n != "heom"]
     if not cases:
         raise FileNotFoundError("no DMRG data in " + d)
-    obs = _load(d, names, prefix)
+    obs = _load(d, names, prefix, label or "")
 
     def have(key):
         return all(key in obs[n] for n in cases)
@@ -140,10 +142,12 @@ if __name__ == "__main__":
     parser.add_argument("prefix", nargs="?", default=None)
     parser.add_argument("-cases", nargs="+", default=None,
                         help="Cases to draw (default: every case with data)")
+    parser.add_argument("-tag", "--label", dest="label", default="",
+                        help="output-tag suffix of the run (dmrg_<case>_<tag>)")
     parser.add_argument("-tmax", type=float, default=None,
                         help="Override the x window (single-window configs)")
     args = parser.parse_args()
     for p in ([args.prefix] if args.prefix else RUNLIST):
-        main(p, cases=args.cases, tmax=args.tmax)
+        main(p, cases=args.cases, tmax=args.tmax, label=args.label)
 
 # %%
