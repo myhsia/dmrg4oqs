@@ -73,7 +73,7 @@ overlaps).  The five reported observables are contractions of `C`
 cd source
 python reference.py                        # HEOM reference -> output/data/<prefix>/
 python dmrg.py A-base_line            # four cases -> output/data/A-base_line/
-python FIG4@robustness.py -group dmrg -ref ../../mkct4oqs/source/output/data
+python FIG4@robustness.py -ref ../../mkct4oqs/source/output/data
 python library/dmrg/validation.py     # regression suite
 ```
 

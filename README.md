@@ -70,8 +70,8 @@ From `source/` with the environment active:
 ```bash
 python reference.py                             # HEOM reference -> output/data/<prefix>/
 python dmrg.py A-base_line                 # four cases -> output/data/A-base_line/
-python FIG0@corrmat.py -method dmrg -ref ../../mkct4oqs/source/output/data
-python FIG4@robustness.py -group dmrg -ref ../../mkct4oqs/source/output/data
+python FIG0@corrmat.py -ref ../../mkct4oqs/source/output/data
+python FIG4@robustness.py -ref ../../mkct4oqs/source/output/data
 python library/dmrg/validation.py          # regression suite (ED references)
 ```
 
