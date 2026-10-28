@@ -25,7 +25,8 @@ import argparse, json, os, sys, warnings
 sys.path.append(os.path.join(os.path.dirname(__file__), "./library"))
 sys.pycache_prefix = os.path.abspath("./output/pycache")
 import mre as core
-from fsutils import load_config, load_group, ensure_dir
+from fsutils import load_config, ensure_dir
+from corrmat import load_corrmat
 from pltools import parse_xlims
 
 
@@ -54,19 +55,15 @@ JSON = "./output/dmrg_error.json"
 MD = "./output/dmrg_error.md"
 
 def _corrmat(prefix, case, label=""):
-    """``(t, C)`` of one tDMRG run, or ``None`` if the archive is absent."""
-    d = "./output/data/" + prefix + "/"
-    tag = f"dmrg_{case}" + (f"_{label}" if label else "")
-    path = d + f"corrmat_{tag}.npz"
-    if not os.path.exists(path):
-        return None
-    return load_group(path)[0][case]
+    """``(t, C)`` of one tDMRG run (grouped or per-case), or ``None``."""
+    got = load_corrmat("./output/data/" + prefix + "/", "dmrg", case, label)
+    return got.get(case)
 
 
 def _ref(prefix):
     """``(t, C)`` of the HEOM reference correlation matrix."""
-    path = os.path.join(REF, prefix) + os.sep + "corrmat_heom.npz"
-    return load_group(path)[0]["qhm"]
+    got = load_corrmat(os.path.join(REF, prefix), "heom")
+    return got.get("qhm")
 
 
 def error(prefix, case, label=""):

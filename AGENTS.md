@@ -18,12 +18,15 @@ Scientific background and methodology are described in
 All code is under `source/`, the working directory for the drivers (paths such as `./config` and
 `./output` are relative to it):
 
-- `source/dmrg.py` — driver: for one config it runs the four bath cases and writes the basis
-  correlation matrix `output/data/<prefix>/corrmat_dmrg_<case>[-<tag>].npz` via `save_group`
-  (key = case, `branch = component = ("00","01","10","11")`, `C(0) = I`).
-- `source/plot_dmrg.py` — writes `output/figures/dmrg@<prefix>.pdf` (legend bar, combined body,
-  coherence body), contracting each `corrmat_dmrg_<case>.npz` and the reference
-  `corrmat_heom.npz` with `library/corrmat.py`.
+- `source/dmrg.py` — driver: for one config it runs the bath cases and writes the basis
+  correlation matrix per case (`corrmat_dmrg_<case>[-<tag>].npz`) and, after a complete
+  `-case all` run, the grouped `corrmat_dmrg.npz` (one matrix per case,
+  `branch = component = ("00","01","10","11")`, `C(0) = I`).
+- `source/FIG0@corrmat.py`, `source/FIG4@robustness.py` — synced copies of the canonical
+  figure scripts: `python FIG0@corrmat.py -method dmrg -ref ../../mkct4oqs/source/output/data`
+  draws the 4x4 `C_ij(t)` pages and
+  `python FIG4@robustness.py -group dmrg -ref ../../mkct4oqs/source/output/data` the
+  `dmrg@<prefix>.pdf` comparison figure (replacing the retired `plot_dmrg.py`).
 - `source/reference.py` — reference dynamics (qutip `HEOMSolver` for linear coupling; the extended
   DEOM, i.e. the dissipaton hierarchy, in `library/extended_deom.py` for quadratic coupling), writing
   only the basis correlation matrix `output/data/<prefix>/corrmat_heom.npz` (one `(t, C)` pair
@@ -158,7 +161,8 @@ matrix into the five observables.
 cd source
 python reference.py                             # reference corrmat -> output/data/<prefix>/
 python dmrg.py A-base_line                 # four cases -> output/data/A-base_line/
-python plot_dmrg.py A-base_line            # -> output/figures/dmrg@A-base_line.pdf
+python FIG0@corrmat.py -method dmrg -ref ../../mkct4oqs/source/output/data
+python FIG4@robustness.py -group dmrg -ref ../../mkct4oqs/source/output/data
 python library/dmrg/validation.py          # regression suite
 ```
 

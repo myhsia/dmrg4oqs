@@ -8,7 +8,7 @@ sys.pycache_prefix = os.path.abspath("./output/pycache")
 from dmrg import chain
 from dmrg.tdmrg import run_observables as run_observables_star
 from qutils import ohmic_modes
-from fsutils import load_config, save_group
+from fsutils import load_config, save_group, load_group
 from corrmat import BASIS
 from pltools import parse_xlims
 
@@ -124,8 +124,8 @@ def main(prefix: str, quantum: bool = True, anharm: bool = False,
                                    save_state = state or None,
                                    n_jobs = n_jobs)
 
-    # 5. Save the basis correlation matrix (the observables are its
-    # contractions, rebuilt by plot_dmrg.py / dmrg_error.py).
+    # 5. Save the per-case basis correlation matrix (the observables are its
+    # contractions, rebuilt by the FIG scripts / dmrg_error.py).
     save_group({case: (t, res["C"])}, outdir, "corrmat_" + tag + ".npz",
                identifier = r"$\mathcal{C}(t)$", branch = BASIS,
                component = BASIS, compress = True)
@@ -146,14 +146,31 @@ def run(prefix: str, cases = CASES, N: int = 20, nmax: int = 6,
              dtau = dtau, engine = engine, tag_suffix = tag_suffix,
              t0 = t0, t1 = t1, state = state, n_jobs = n_jobs,
              chi_prep = chi_prep)
+    full = (not state and t0 is None and t1 is None)
     # Case-level parallelism only makes sense for independent full runs: a
     # segmented run shares one checkpoint path and must stay serial.
-    if nproc > 1 and len(cases) > 1 and not state and t0 is None and t1 is None:
+    if nproc > 1 and len(cases) > 1 and full:
         from joblib import Parallel, delayed
         Parallel(n_jobs = nproc)(delayed(one)(c) for c in cases)
     else:
         for case in cases:
             one(case)
+
+    # Group the four cases into the canonical ``corrmat_dmrg.npz`` (the
+    # per-case archives stay for segmented and CI runs).  Only a complete
+    # unsegmented set is grouped.
+    d = "./output/data/" + prefix
+    tag = "dmrg" + (f"_{tag_suffix}" if tag_suffix else "")
+    series = {}
+    for case in CASES:
+        path = d + "/corrmat_" + tag + "_" + case + ".npz"
+        if not os.path.exists(path):
+            continue
+        series.update(load_group(path)[0])
+    if full and len(series) == len(CASES):
+        save_group(series, d, "corrmat_" + tag + ".npz",
+                   identifier = r"$\mathcal{C}(t)$", branch = BASIS,
+                   component = BASIS, compress = True)
 
 
 if __name__ == "__main__":
