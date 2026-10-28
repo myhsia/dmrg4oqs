@@ -47,9 +47,10 @@ overlaps).  The five reported observables are contractions of `C`
 - The finite-temperature bath is a thermofield-double purification prepared by imaginary-time TDVP.
 - **Two-site TDVP is the correct engine.**  The single-site + subspace-expansion variant
   (`-engine onesite`) is numerically wrong (it oscillates/collapses); do not use it.
-- `source/dmrg.py` writes `output/data/<prefix>/*_dmrg_<case>.npz`;
-  `source/plot_dmrg.py` writes `output/figures/dmrg@<prefix>.pdf` (legend bar, combined
-  body, coherence body) and overlays the reference `corrmat_heom.npz` when present.
+- `source/dmrg.py` writes the per-case `corrmat_dmrg_<case>.npz` and, for a complete
+  `-case all` run, the grouped `corrmat_dmrg.npz`; the synced `FIG0@corrmat.py` /`
+  `FIG4@robustness.py` draw the `corrmat-dmrg@<prefix>.pdf` and `dmrg@<prefix>.pdf` figures,
+  overlaying the reference `corrmat_heom.npz` when it is pointed at with `-ref`.
 - `library/dmrg/` holds `chain.py` (chain mapping, thermal state, TDVP), `model.py`, `tdmrg.py`
   (observable extraction) and `validation.py`.
 
@@ -72,7 +73,7 @@ overlaps).  The five reported observables are contractions of `C`
 cd source
 python reference.py                        # HEOM reference -> output/data/<prefix>/
 python dmrg.py A-base_line            # four cases -> output/data/A-base_line/
-python plot_dmrg.py A-base_line       # -> output/figures/dmrg@A-base_line.pdf
+python FIG4@robustness.py -group dmrg -ref ../../mkct4oqs/source/output/data
 python library/dmrg/validation.py     # regression suite
 ```
 

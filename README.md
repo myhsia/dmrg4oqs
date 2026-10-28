@@ -43,7 +43,8 @@ such as `./config` and `./output` are relative to it):
     source/
       reference.py                    # HEOM / extended-DEOM reference dynamics
       dmrg.py                    # MPS/tDMRG reference dynamics
-      plot_dmrg.py               # dmrg@<prefix>.pdf figures
+      FIG0@corrmat.py            # 4x4 C_ij(t) pages (synced from mkct4oqs)
+      FIG4@robustness.py         # dmrg@<prefix>.pdf figure (synced from mkct4oqs)
       environment.yaml           # conda environment (`dmrg`)
       requirements.txt
       config/                    # parameter files (shared, non-sensitive)
@@ -69,7 +70,8 @@ From `source/` with the environment active:
 ```bash
 python reference.py                             # HEOM reference -> output/data/<prefix>/
 python dmrg.py A-base_line                 # four cases -> output/data/A-base_line/
-python plot_dmrg.py A-base_line            # -> output/figures/dmrg@A-base_line.pdf
+python FIG0@corrmat.py -method dmrg -ref ../../mkct4oqs/source/output/data
+python FIG4@robustness.py -group dmrg -ref ../../mkct4oqs/source/output/data
 python library/dmrg/validation.py          # regression suite (ED references)
 ```
 
