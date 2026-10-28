@@ -3,9 +3,7 @@
 The following directories, files, and patterns MUST NOT be read or accessed:
 
 - `.git/`
-- `*.log`
 - `**/__pycache__/`
-- `**/output/`
 
 Any tool that reads files (`read`, `glob`, `grep`, `shell` with file-reading commands) must respect
 these restrictions.
@@ -41,6 +39,10 @@ All code is under `source/`, the working directory for the drivers (paths such a
   observable extraction), `validation.py` (regression suite).
 - `source/environment.yaml`, `source/requirements.txt` — the `dmrg` conda environment.
 
+**Canonical archives** are `corrmat_<method>[_<label>].npz`.  The per-curve
+`{pop,cohe,cohem,corr,xorr}_<method>_<case>.npz` files are legacy from the pre-corrmat workflow;
+no script reads them, and they are archived out of `output/data/<prefix>/`.
+
 ## Method
 
 - **HEOM / extended DEOM.**  Linear coupling uses qutip's `OhmicEnvironment` + `HEOMSolver` (ESPIRA-I fit); quadratic
@@ -57,71 +59,61 @@ All code is under `source/`, the working directory for the drivers (paths such a
 
 ## Validity (measured, not assumed)
 
-Score with the house metric (`dmrg_error.py`, the shared `library/mre.py`): the global relative
-Frobenius error `||C - C'||_F / ||C'||_F` of the basis correlation matrix (all 16 complex
-elements) against the HEOM reference matrix over the config window, reported in percent.
-The tabulated numbers below predate this metric (they were measured with the previous
-32-series definition), so re-run `dmrg_error.py` to refresh them.
+Score with the house metric (`dmrg_error.py`, the shared `library/mre.py`): the global
+relative Frobenius error `||C - C'||_F / ||C'||_F` of the basis correlation matrix (all 16
+complex elements) against the HEOM reference matrix over the config window, in percent.
+Every DMRG value comes from the corrmat workflow (`dmrg.py` -> `corrmat_dmrg_<case>.npz` ->
+`corrmat.observables`); no stored curves are involved.
 
-**Result (reference scenario, N=16, `nmax=8`, star, t ≤ 2):**
+**Reference scenario (star, N=16, `nmax=8`, chi=64, `dt=0.05`, t <= 2):**
 
-| setting | mean |
-|---|---|
-| χ=64, `dt=0.05` | **6.5 %** |
-| χ=64, `dt=0.075` | 7.7 % |
-| χ=128, `dt=0.05` | 10.9 % |
-| χ=128, `dt=0.075`, `nmax=12` | 13.3 % |
-| χ=128, `dt=0.075`, `nmax=8` | 14.5 % |
-| N=40, χ=64, `dt=0.075` (t ≤ 4) | 44.9 % |
-| χ=96, `nmax=16`, `dt=0.3` (first attempts) | 76.5 % |
+| case | E |
+|---|---:|
+| QHM | **9.0 %** |
+| QAH | 19.9 % |
+| CHM | 41.3 % |
+| CAH | 67.1 % |
 
-For scale the FSSH reference scores 28 % on the same metric.  `dt` is converged at both bond
-dimensions (7.7 → 6.5 for `dt` 0.075 → 0.05 at χ=64; 14.5 → 10.9 at χ=128) and the Fock space is
-converged (`nmax` 8 → 12 moves 14.5 → 13.3), but **χ is not**: at fixed `dt=0.05` the score goes
-6.5 (χ=64) → 10.9 (χ=128), i.e. **more χ is worse**, so neither value is certified.  Adding modes at
-fixed χ is harmful (N=40 → 44.9 %), i.e. χ must grow with N.
+Same window and metric, other references (common grid): MKCT 0.3 / 1.6 / 23.7 / 24.8,
+MASH 20.0 / 14.7 / 13.8 / 10.6, FSSH 21.1 / 20.7 / 18.7 / 19.4 (QHM / QAH / CHM / CAH).
+So tDMRG beats FSSH on QHM, ties it on QAH, and is poor on the classical surrogate.
 
-**The decisive parameter is `dt`, not χ.**  The star's highest mode is `ω_max ≈ 40`, so `dt=0.3`
-means `ω dt ≈ 12`; the per-step truncation then damps the fast modes and fabricates a "too fast
-initial decay" that looks like a χ/`nmax`/thermal-state problem.  Measured at N=16, χ=64,
-`nmax=8`:
+**The decisive parameter is `dt`, not chi.**  The star's highest mode is `w_max = 40`, so
+`dt=0.3` means `w dt ~ 12`; the per-step truncation then damps the fast modes and fabricates
+a "too fast initial decay" that looks like a chi/`nmax`/thermal-state problem.  Measured
+(N=16, chi=64, `nmax=8`, t <= 2):
 
-| `dt` | pop₀ at t=0.4 / 0.8 / 1.2 (HEOM 0.866 / 0.631 / 0.481) |
-|---|---|
-| 0.3 | 0.718 / 0.447 / 0.391 (wrong) |
-| 0.15 | 0.824 / 0.629 / 0.474 |
-| 0.075 | 0.874 / 0.598 / 0.467 |
-| **0.05** | **0.861 / 0.620 / 0.467** |
+| `dt` | QHM | QAH | CHM | CAH |
+|---|---:|---:|---:|---:|
+| 0.15 | 15.6 | 85.9 | 81.9 | 86.2 |
+| **0.05** | **9.0** | **19.9** | **41.3** | **67.1** |
 
-**Geometry.**  Prefer the **star** with a **per-mode `nmax`** (`-nmax` accepts a sequence): the star's
-thermal state is an exact product of per-mode TFDs (no imaginary-time preparation, which dominated
-the chain runs at 2 h+), and a schedule such as `[20, 8, 4, 2, …]` keeps 99.4 % of the static weight
-`⟨Q²⟩` at 7.5× lower cost (`Σd³` 10 466 vs 78 608 for uniform 16).  The chain remains available but
-its preparation is expensive and no better.
+`dt` is converged over this range and the Fock space is converged (`nmax` 8 -> 12 moves the
+score by ~1 point at chi=128), but **chi is not certified**: the chi=128 corrmat run is the
+open check.  Quote the reference as the most accurate configuration found, with that caveat.
 
-**Window.**  With N modes the discrete bath correlation recurs at `t ≈ 2πN/w_max`; for N=16,
-`w_max=40` that is ≈2.5, so the reference is meaningful only up to `t ≈ 2` (the metric window is
-still the config's `tf`; `dmrg_error.py` warns when the series ends earlier).
+**Geometry.**  Prefer the **star** with a **per-mode `nmax`** (`-nmax` accepts a sequence): the
+star's thermal state is an exact product of per-mode TFDs (no imaginary-time preparation, which
+dominated the chain runs at 2 h+), and a schedule such as `[20, 8, 4, 2, ...]` keeps 99.4 % of
+the static weight `<Q^2>` at 7.5x lower cost (`sum d^3` 10 466 vs 78 608 for uniform 16).  The
+chain remains available but its preparation is expensive and no better.
 
-Pushing the recurrence out is **not** the way to extend it.  Measured, full window 0→12, same bath
-discretization and χ=64 (mean error, house metric):
+**Window.**  With N modes the discrete bath correlation recurs at `t ~ 2 pi N / w_max`; for
+N=16, `w_max=40` that is ~2.5, so the reference is meaningful only up to `t ~ 2` (the metric
+window is still the config's `tf`; `dmrg_error.py` warns when the series ends earlier).
 
-| run | qhm | qah | chm | cah |
-|---|---|---|---|---|
-| N=16, `dt=0.05`: 0–2.5 / 0–6 / 0–12 | 9.4 / 35.0 / 66.2 | 18.7 / 24.5 / 39.2 | 38.4 / 72.0 / 122.3 | 67.8 / 71.8 / 77.4 |
-| N=40, `dt=0.1`: 0–2.5 / 0–6 / 0–12 | 18.7 / 65.2 / 111.1 | 67.0 / 86.0 / 112.1 | 97.3 / 103.6 / 118.3 | 97.6 / 114.4 / 141.2 |
+Pushing the recurrence out is **not** the way to extend it: at fixed chi, more modes add
+entanglement that is truncated harder, so the curve degrades *before* its own recurrence.
+A converged 0-12 reference needs N >~ 80 **and** chi >~ 256 together, which is out of reach
+here (an intermediate N=40, chi=128, `dt=0.05` attempt was ~40 h and was abandoned).  The
+reference stays a short-time statement.
 
-N=40 is worse in *every* window and case — it collapses at `t≈2.2`, before its own recurrence at
-6.3 — because the extra modes add entanglement that χ=64 truncates harder.  So the late-time failure
-is **truncation, not the recurrence**: a converged 0–12 curve needs N≳80 *and* χ≳256 together, which
-is out of reach (N=40/χ=128/`dt=0.05` alone was ≈40 h).  The reference stays a short-time statement.
+**Classical cases.**  `chm`/`cah` relax far faster than HEOM at every setting: the per-mode
+squeezed thermal state is not a Gibbs state, so they are not a quantitative reference.
 
-
-**Classical cases.**  `chm`/`cah` collapse by `t ≈ 0.6` at every setting: the per-mode squeezed
-thermal state is not a Gibbs state, so they are not a quantitative reference and are **not plotted**.
-
-**Regression.**  `library/dmrg/validation.py` reproduces exact diagonalization for N ≤ 3 to ~1e-2,
-so the mapping and the observable algebra are sound; `check_bath.py` measures the bath itself.
+**Regression.**  `library/dmrg/validation.py` reproduces exact diagonalization for N <= 3 to
+~1e-2, so the mapping and the observable algebra are sound; `check_bath.py` measures the bath
+itself against `sum_j c_j^2 (1/2) coth(beta w_j/2) cos(w_j t)`.
 
 
 ## Shared pieces (mirrored from `mkct4oqs`)
