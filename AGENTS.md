@@ -89,8 +89,19 @@ a "too fast initial decay" that looks like a chi/`nmax`/thermal-state problem.  
 | **0.05** | **9.0** | **19.9** | **41.3** | **67.1** |
 
 `dt` is converged over this range and the Fock space is converged (`nmax` 8 -> 12 moves the
-score by ~1 point at chi=128), but **chi is not certified**: the chi=128 corrmat run is the
-open check.  Quote the reference as the most accurate configuration found, with that caveat.
+score by ~1 point at chi=128), but **chi is not**, and the sign of its failure is informative:
+
+| chi | QHM | QAH | CHM | CAH |
+|---|---:|---:|---:|---:|
+| 64 | **9.0** | **19.9** | **41.3** | 67.1 |
+| 128 | 19.2 | 29.9 | 46.2 | **55.8** |
+
+A converged calculation must improve monotonically with chi; here three of the four cases get
+*worse*.  At chi=64 the truncation damps the fastest bath modes, and that damping happens to
+pull the curve toward HEOM; at chi=128 it is gone and the N=16 discretization is exposed.
+Certifying the reference therefore needs N and chi raised together, not chi alone.  Quote the
+reference as the most accurate configuration found (QHM ~9 % over t <= 2), a short-time
+indicator, not a benchmark.
 
 **Geometry.**  Prefer the **star** with a **per-mode `nmax`** (`-nmax` accepts a sequence): the
 star's thermal state is an exact product of per-mode TFDs (no imaginary-time preparation, which
