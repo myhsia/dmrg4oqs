@@ -65,7 +65,7 @@ overlaps).  The five reported observables are contractions of `C`
   two-site sweep is sequential and the two propagations cannot be split (`C_mu` needs both states
   at every output time), so more in-job parallelism does not help.
 - Shared, system-wide conventions (repo etiquette, Python style, git/PR, LaTeX, tooling) are in the
-  workspace `repo-rules` skill.
+  global `repo-rules` skill.
 
 ## Workflows
 
