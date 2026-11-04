@@ -33,6 +33,16 @@ def _case_name(quantum: bool, anharm: bool) -> str:
     raise ValueError(f"No case for quantum={quantum}, anharm={anharm}")
 
 
+def _nmax_arg(text):
+    """``-nmax``: an int, or a comma/space separated per-mode sequence."""
+    parts = [p for p in str(text).replace(",", " ").split() if p]
+    if not parts:
+        raise argparse.ArgumentTypeError("empty -nmax")
+    if len(parts) == 1:
+        return int(parts[0])
+    return [int(p) for p in parts]
+
+
 def _parse_args():
     parser = argparse.ArgumentParser(
         description = "MPS/tDMRG reference dynamics for the spin-boson model.")
@@ -43,13 +53,15 @@ def _parse_args():
     parser.add_argument("-geometry", choices = ["auto", "chain", "star"],
                         default = "auto",
                         help = "Bath geometry (auto: chain for quantum, star for classical)")
-    parser.add_argument("-engine", choices = ["twosite", "onesite"],
+    parser.add_argument("-engine", choices = ["twosite", "onesite", "krylov"],
                         default = "twosite",
                         help = "TDVP engine (onesite uses Krylov subspace expansion, ~3x faster)")
     parser.add_argument("-N", type = int, default = 20,
                         help = "Number of bath modes")
-    parser.add_argument("-nmax", type = int, default = 6,
-                        help = "Local Fock-space truncation per mode")
+    parser.add_argument("-nmax", type = _nmax_arg, default = 6,
+                        help = "Local Fock-space truncation per mode: an int, "
+                               "or a length-N sequence (e.g. 20,8,4,2)"
+                               )
     parser.add_argument("-chi", type = int, default = 128,
                         help = "Maximum MPS bond dimension")
     parser.add_argument("-dt", type = float, default = 0.02,
@@ -122,7 +134,9 @@ def main(prefix: str, quantum: bool = True, anharm: bool = False,
                                    nmax = nmax, chi = chi, dt = dt, t0 = t0,
                                    state = state or None,
                                    save_state = state or None,
-                                   n_jobs = n_jobs)
+                                   n_jobs = n_jobs,
+                                   engine = (engine if engine in
+                                             ("twosite", "krylov") else "twosite"))
 
     # 5. Save the per-case basis correlation matrix (the observables are its
     # contractions, rebuilt by the FIG scripts / dmrg_error.py).

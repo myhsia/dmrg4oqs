@@ -36,7 +36,8 @@ All code is under `source/`, the working directory for the drivers (paths such a
   `a2 = 0` reduces it to the linear HEOM.
 - `source/library/dmrg/` — `chain.py` (star→Lanczos chain, two-site TDVP, thermofield-double bath),
   `model.py` (star MPS, coupling MPO, per-mode squeezed classical state), `tdmrg.py` (shared
-  observable extraction), `validation.py` (regression suite).
+  observable extraction), `integrator.py` (propagator comparison on the exact state: exact
+  exponential vs Krylov vs Cayley), `validation.py` (regression suite).
 - `source/environment.yaml`, `source/requirements.txt` — the `dmrg` conda environment.
 
 **Canonical archives** are `corrmat_<method>[_<label>].npz`.  The per-curve
@@ -65,62 +66,157 @@ complex elements) against the HEOM reference matrix over the config window, in p
 Every DMRG value comes from the corrmat workflow (`dmrg.py` -> `corrmat_dmrg_<case>.npz` ->
 `corrmat.observables`); no stored curves are involved.
 
-**Reference scenario (star, N=16, `nmax=8`, chi=64, `dt=0.05`, t <= 2):**
+**Only QHM has a reference.**  The four cases differ in the *bath* (quantum/classical x
+harmonic/anharmonic) while `corrmat_heom.npz` holds the quantum-harmonic matrix only.  Scoring
+QAH/CHM/CAH against it measures the physical difference between the baths, not the numerical
+error, so **no accuracy is claimed for them and their cross-case numbers are not to be
+quoted**.  The numerical protocol (N, `wmax_factor`, chi, `nmax`, `dt`) is calibrated on QHM
+below and inherited unchanged by the other three cases; those runs feed the quantum-vs-
+classical comparison, not an error analysis.
 
-| case | E |
+### Accuracy (QHM only)
+
+Star, N=16, `wmax_factor=10`, chi=64, `dt=0.025`, scored on the production window **`t <= 4`**:
+
+| `nmax` | E at `t <= 4` | E at `t <= 2` |
+|---|---:|---:|
+| 8 | 7.58 % | 3.75 % |
+| 12 | 6.94 % | 2.55 % |
+| **16** | **6.62 %** | **1.77 %** |
+
+The `t <= 4` differences halve (0.64 then 0.32), so the limit is ~6.45 %; the `t <= 2` metric is
+much more sensitive to the Fock space (3.75 -> 1.77, a factor 2), i.e. the early-time coherence
+is the part that needs the high levels.  `nmax = 16` is the best measured; `nmax = 12` costs
++5 % error for a much cheaper run.
+
+Window dependence of the same protocol (`nmax=8`, `dt=0.025`): 3.75 / 5.31 / 7.58 / 10.53 /
+12.52 % at `t <= 2 / 3 / 4 / 5 / 6`.  The reporting limit is `t = 4`; `t = 6` is available and
+labelled.
+
+### How each parameter was shown to converge (QHM, `t <= 4`)
+
+Every entry below changes **one** parameter of the reference protocol and is scored on the same
+window, so the ordering is the measured sensitivity:
+
+| parameter | setting | E at `t <= 4` |
+|---|---|---:|
+| `dt` (`nmax=8`) | 0.05 | 26.70 % |
+| | **0.025** | **7.58 %** |
+| `dt` (`nmax=12`) | 0.025 | 6.94 % |
+| | 0.0125 | 6.93 % |
+| chi | 32 | 7.60 % |
+| | **64** | 7.58 % |
+| `nmax` | 8 | 7.58 % |
+| | 12 | 6.94 % |
+| | **16** | **6.62 %** |
+| N (`wmax_factor=10`) | **16** | **7.58 %** |
+| | 40 | 8.06 % |
+| N=40, chi 32 -> 64 | | 3.85 % -> 3.85 % at `t <= 1` |
+
+Order to use when certifying a new window: **window -> `dt` -> chi -> `nmax` -> N**.
+
+The `dt=0.05` and `chi=32` scan runs are **not retained**: their numbers in the table are the
+record and are reproducible from the settings given here.  The N=32/40 runs *are* kept, because
+they are the only evidence for the non-monotonicity in N; the other archives under
+`output/data/<prefix>/` are production runs.
+
+* **`dt` dominates, and 0.025 is converged from below.** 0.05 is 3.5x worse than 0.025 at
+  `t <= 4`, while halving again (0.025 -> 0.0125, at `nmax=12`) moves the score by 0.01 points
+  (6.94 -> 6.93 %).  The improvement is per-step bond truncation (see the propagator section),
+  not the exponential, which is exact at 0.05 already.
+* **chi is cheap to satisfy**: 32 and 64 agree to 0.02 points, so 32 is enough at N=16.
+* **`nmax = 8` is badly unconverged**: 12 buys 8 % at `t <= 4` and 32 % at `t <= 2`, and 16 buys
+  a further 5 % / 31 %.  This was invisible while `dt = 0.05` truncation dominated, and it is the
+  one parameter still moving at the affordable end of the sweep.
+* **agreement with HEOM is not monotone in N**: N=40 is worse than N=16 at *every* window,
+  including `t <= 1` where aliasing is irrelevant, and chi=32 and chi=64 give the *same* 3.85 %
+  there -- so it is the discretisation, not truncation.  With the static weight identical for
+  `wmax_factor=10` at every N (`sum c^2 eta` = 2.15982), the likely reading is that HEOM's own
+  bath is a fit (ESPIRA-I) and a finer Gauss-Legendre representation of the true continuum can
+  move away from it.  Keep N=16.
+
+### Method comparison, QHM only, `t <= 4`
+
+Same metric, same window (MKCT archives in `mkct4oqs`, MASH/FSSH in `sh4oqs`):
+
+| method | E |
 |---|---:|
-| QHM | **9.0 %** |
-| QAH | 19.9 % |
-| CHM | 41.3 % |
-| CAH | 67.1 % |
+| MKCT | **0.54 %** |
+| tDMRG (this reference) | 7.58 % (6.94 % at `nmax=12`) |
+| MASH | 17.16 % |
+| FSSH | 37.21 % |
 
-Same window and metric, other references (common grid): MKCT 0.3 / 1.6 / 23.7 / 24.8,
-MASH 20.0 / 14.7 / 13.8 / 10.6, FSSH 21.1 / 20.7 / 18.7 / 19.4 (QHM / QAH / CHM / CAH).
-So tDMRG beats FSSH on QHM, ties it on QAH, and is poor on the classical surrogate.
+Note the metric window: runs are made with `-t1 4` while the config `tf` is 12, so
+`dmrg_error.py` scores the overlap `[0, 4]` and warns; use `--windows 2 3 4` to score a long
+run on successive windows.
 
-**The decisive parameter is `dt`, not chi.**  The star's highest mode is `w_max = 40`, so
-`dt=0.3` means `w dt ~ 12`; the per-step truncation then damps the fast modes and fabricates
-a "too fast initial decay" that looks like a chi/`nmax`/thermal-state problem.  Measured
-(N=16, chi=64, `nmax=8`, t <= 2):
+**The propagator is not the limitation (measured; `library/dmrg/integrator.py`).**  On the exact
+many-body state, with every stepped run ending at the same final time so that a perfect
+propagator must show no `dt` dependence:
 
-| `dt` | QHM | QAH | CHM | CAH |
-|---|---:|---:|---:|---:|
-| 0.15 | 15.6 | 85.9 | 81.9 | 86.2 |
-| **0.05** | **9.0** | **19.9** | **41.3** | **67.1** |
+| dt | w_max dt | exact | Krylov (m=20) | Cayley |
+|---:|---:|---:|---:|---:|
+| 0.2 | 8.0 | 1e-14 | 4.5e-4 | 1.5e-1 |
+| 0.1 | 4.0 | 1e-14 | 1.4e-3 | 1.6e-3 |
+| **0.05** | **2.0** | **1.1e-14** | **2.1e-5** | 1.3e0 |
+| 0.025 | 1.0 | 1.1e-14 | 8.7e-15 | 8.3e-1 |
 
-`dt` is converged over this range and the Fock space is converged (`nmax` 8 -> 12 moves the
-score by ~1 point at chi=128), but **chi is not**, and the sign of its failure is informative:
+(free mode at `w = 40`, `t = 2`, error in `<q>`; the thermal 2-mode bath gives the same
+picture, 1e-14 Krylov vs 1e-2 Cayley at `dt = 0.05`).  So at `dt = 0.05` the propagator is
+exact to round-off, yet that setting is 3.5x worse at `t <= 4` (26.70 % vs 7.58 %).  The `dt`
+dependence is therefore **bond truncation** per step, not integrator accuracy: `U(dt)^n =
+U(n dt)` for any propagator built from `H`, so a converged exponential cannot show a `dt` error
+at fixed output times.
 
-| chi | QHM | QAH | CHM | CAH |
-|---|---:|---:|---:|---:|
-| 64 | **9.0** | **19.9** | **41.3** | 67.1 |
-| 128 | 19.2 | 29.9 | 46.2 | **55.8** |
+A **Cayley** (Crank-Nicolson) step is therefore not an alternative: it is exactly unitary but
+composes to `exp(-i t H_eff)` with `H_eff = 2 atan(H dt/2)/dt`
+(`validation.py::test_propagators`, 2e-13), which is *nonlinear* in the level index, i.e. it
+anharmonicises a harmonic bath instead of just shifting it.  Its `n = 1` shift at the fastest
+mode is 21 % at `dt = 0.05`, and matching Krylov needs ~6x smaller steps, each an iterative
+linear solve.  Cayley is the right scheme for **imaginary time** (`prepare_thermal`), where the
+propagator is not unitary and A-stability is what matters.
 
-A converged calculation must improve monotonically with chi; here three of the four cases get
-*worse*.  At chi=64 the truncation damps the fastest bath modes, and that damping happens to
-pull the curve toward HEOM; at chi=128 it is gone and the N=16 discretization is exposed.
-Certifying the reference therefore needs N and chi raised together, not chi alone.  Quote the
-reference as the most accurate configuration found (QHM ~9 % over t <= 2), a short-time
-indicator, not a benchmark.
+**Geometry.**  Prefer the **star**: its thermal state is an exact product of per-mode TFDs, with
+no imaginary-time preparation (which dominated the chain runs at 2 h+).  The chain remains
+available but its preparation is expensive and no better.
 
-**Geometry.**  Prefer the **star** with a **per-mode `nmax`** (`-nmax` accepts a sequence): the
-star's thermal state is an exact product of per-mode TFDs (no imaginary-time preparation, which
-dominated the chain runs at 2 h+), and a schedule such as `[20, 8, 4, 2, ...]` keeps 99.4 % of
-the static weight `<Q^2>` at 7.5x lower cost (`sum d^3` 10 466 vs 78 608 for uniform 16).  The
-chain remains available but its preparation is expensive and no better.
+**Per-mode `nmax`: measured, and the weight-based schedule is *wrong*.**  `-nmax` accepts a
+per-mode sequence (e.g. `-nmax 20,8,4,2`), and a schedule assigning a large Fock space to the
+modes with the largest static weight looks attractive -- `[2,2,8,20,4,2,...]` costs
+`sum d^3 = 10 466` against 11 664 for uniform `nmax = 8`.  Measured at the converged step
+(qhm, star, N=16, chi=64, `dt = 0.025`, `t <= 2`; the schedule run is t<=2 only, scored on the
+same window as the uniform-8 benchmark):
 
-**Window.**  With N modes the discrete bath correlation recurs at `t ~ 2 pi N / w_max`; for
-N=16, `w_max=40` that is ~2.5, so the reference is meaningful only up to `t ~ 2` (the metric
-window is still the config's `tf`; `dmrg_error.py` warns when the series ends earlier).
+| `nmax` | E |
+|---|---:|
+| uniform 8 | **3.75 %** |
+| `[2,2,8,20,4,2,...]` (weight-ordered) | 12.35 % |
 
-Pushing the recurrence out is **not** the way to extend it: at fixed chi, more modes add
-entanglement that is truncated harder, so the curve degrades *before* its own recurrence.
-A converged 0-12 reference needs N >~ 80 **and** chi >~ 256 together, which is out of reach
-here (an intermediate N=40, chi=128, `dt=0.05` attempt was ~40 h and was abandoned).  The
-reference stays a short-time statement.
+The schedule gives `nmax = 2` to the two lowest modes (`w = 0.21, 1.11`), which are the ones
+with the largest thermal occupation (`<n> = 7.4, 1.1`): their *coupling* weight `c^2 eta` is
+small, but they carry the long-time memory, so two levels corrupt the dynamics.  Static weight
+is therefore not a valid criterion for the Fock truncation; use **uniform `nmax`**.  Note that
+uniform 8 is itself not converged: at `dt = 0.025`, `nmax = 12` buys 8 % at `t <= 4` and 32 % at
+`t <= 2` (see the parameter table above), and 16 improves it again.  Use **uniform
+`nmax = 16`** for the accuracy statement and 12 for cheaper production runs.
 
-**Classical cases.**  `chm`/`cah` relax far faster than HEOM at every setting: the per-mode
-squeezed thermal state is not a Gibbs state, so they are not a quantitative reference.
+The earlier claim that a schedule keeps "99.4 % of the static weight" conflated two different
+truncations: 99.44 % is the weight of keeping 10 of the 16 *modes*, while 10 466/78 608 is the
+*cost* ratio of the Fock schedule -- the schedule itself keeps 88.9 % (star), not 99.4 %.
+
+**Window.**  The discrete bath correlation recurs at `t ~ 2 pi N / w_max` (N=16 -> 2.5), but
+that bound is **soft**: the measured series above (3.75 -> 12.52 % from `t <= 2` to `t <= 6`)
+grows smoothly with no breakdown, so `t = 4` (1.6x the recurrence) is a legitimate window.  Do
+not push it by adding modes: at fixed chi, more modes add entanglement that is truncated
+harder, and the measured N=32/N=40 runs are worse at every window.  A long-window run should
+start from `chi = 64`, `dt = 0.025`, N=16 and raise N only with chi raised in step, timing a
+short segment first.
+
+**Other cases.**  `qah`/`chm`/`cah` have no reference (see "Only QHM has a reference" above):
+their baths differ physically, so their dynamics differ from HEOM by construction.  They run
+with the QHM-calibrated protocol and are reported only in the quantum-vs-classical comparison.
+The classical cases additionally use a per-mode squeezed thermal state, which is not a Gibbs
+state.
 
 **Regression.**  `library/dmrg/validation.py` reproduces exact diagonalization for N <= 3 to
 ~1e-2, so the mapping and the observable algebra are sound; `check_bath.py` measures the bath
@@ -149,13 +245,42 @@ matrix into the five observables.
   `a = anharmon * sqrt(7/6)`.
 - The **classical** cases use a per-mode squeezed thermal state (the classical bath lies below the
   quantum zero-point and is not a Gibbs state).
-- **`engine`**: two-site TDVP is the correct engine.  The single-site + subspace-expansion variant
-  (`-engine onesite`) is numerically wrong (it oscillates/collapses) — do not use it.  (Pure
-  one-site TDVP at fixed χ, without the expansion, is fine and is what the reference protocol uses.)
+- **`engine`**: two-site TDVP is the reference engine.  The single-site + subspace-expansion
+  variant (`-engine onesite`) is numerically wrong (it oscillates/collapses) — do not use it.
+  (Pure one-site TDVP at fixed χ, without the expansion, is fine and is what the reference
+  protocol uses.)  `-engine krylov` builds the global Krylov space
+  `{psi, H psi, ..., H^{m-1} psi}` as MPS (`m = 10`), exponentiates the `m x m` projection
+  exactly and truncates once when forming the combination.  It is the vector-space analogue
+  of the moment/continued-fraction construction, it agrees with ED to 1e-9 (one mode) and with
+  TDVP to 6e-6 on the same model (`validation.py`) -- and it is **much worse than TDVP at fixed
+  chi, and does not improve with chi**.  Measured (qhm, star, N=16, nmax=8, `dt = 0.025`,
+  `t <= 2`):
+
+  | engine | chi = 16 | chi = 32 | chi = 64 |
+  |---|---:|---:|---:|
+  | two-site TDVP | 8.26 % | 3.76 % | **3.75 %** |
+  | global Krylov (`m = 8`) | 67.29 % | 72.44 % | -- |
+
+  Two facts matter.  TDVP converges cleanly in chi (8.26 -> 3.76 -> 3.75), so chi = 32 is
+  enough.  Krylov is 8-19x worse and gets *worse* as chi grows -- which contradicts the naive
+  "truncation multiplicity" explanation (that picture predicted convergence toward TDVP at
+  large chi).  What is left is the repeated compression itself: the Krylov vectors are
+  re-compressed at every matvec and addition, the Gram deviates from the identity
+  (`~1e-4` at chi = 16), and the generalised eigenvalue solve then produces a poor
+  combination; at chi = 16 the population collapses to 0.095 at `t = 2` (HEOM 0.415) with the
+  norm still 1, i.e. artificial relaxation.
+
+  So the conclusion is about **this construction**, not about the Krylov idea: a fair test
+  needs a work bond dimension (`chi_work >> chi_out`, truncate once at the end) or a
+  variational compression of the Krylov vectors, which is `~m` times the cost per step.  Until
+  that exists, use TDVP; the Krylov engine stays as a validated reference implementation of
+  the moment/CF analogy and as the regression that the global step is exact when nothing is
+  truncated.
 - **Bath modes**: the discrete bath correlation recurs at `t ≈ 2πN/w_max`, so matching the continuum
-  over `t ≤ 12` needs `N ≳ 80` (N=16 → t ≈ 2.5).  `nmax ≥ 8` (or a per-mode schedule keeping
-  ≥ 99 % of `⟨Q²⟩`) and χ ≳ 64 are needed, and crucially **`dt ≲ 0.1`** because the star's highest
-  mode is `ω_max = wmax_factor*C` (`ω dt` must stay ≲ 3).
+  over `t ≤ 12` needs `N ≳ 80` (N=16 → t ≈ 2.5).  **uniform `nmax = 16`** (8 and 12 are not
+  converged; the weight-based per-mode schedule is not valid, see above) and χ ≥ 32 are needed.  **`dt ≲ 0.025`** at χ = 64 (`0.05 -> 9.0 %`,
+  `0.025 -> 3.75 %`, `0.0125 -> 3.77 %`); the limit is per-step bond truncation, *not* the
+  exponential, which is exact to round-off at `dt = 0.05` (see the propagator section).
 - Coding style: see the maintainer's shared `repo-rules` skill.
 
 ## Workflows
@@ -167,6 +292,7 @@ python dmrg.py A-base_line                 # four cases -> output/data/A-base_li
 python FIG0@corrmat.py -ref ../../mkct4oqs/source/output/data
 python FIG4@robustness.py -ref ../../mkct4oqs/source/output/data
 python library/dmrg/validation.py          # regression suite
+python library/dmrg/integrator.py          # propagator study -> output/integrator_report.{json,md}
 ```
 
 ## CI

@@ -82,7 +82,7 @@ def _evolve_one(b, psi_b, model_args, opts, t, snapdir):
 def run_observables(epsilon, Delta, omega, c, beta, t, quantum = True, anharm2 = 0.0,
                     nmax = 6, chi = 128, dt = None, verbose = False,
                     t0 = None, state = None, save_state = None, normalize_cmu = None,
-                    n_jobs = 1):
+                    n_jobs = 1, engine = "twosite", krylov_m = 10, krylov_chi = None):
     """Evolve the spin-boson MPS and return the correlation matrix.
 
     Returns a dict with ``C`` (nT, 4, 4) and, for convenience, its five
@@ -150,6 +150,18 @@ def run_observables(epsilon, Delta, omega, c, beta, t, quantum = True, anharm2 =
             psi = {0: final0, 1: final1}
         finally:
             shutil.rmtree(snapdir, ignore_errors = True)
+    elif engine == "krylov":
+        from .krylov import krylov_step
+        ktrunc = {'chi_max': int(krylov_chi or chi), 'svd_min': 1e-13}
+        for it in range(nT):
+            store(it, _corrmat(psi[0], psi[1]))
+            if verbose:
+                print(f"  t={t[it]:.3f} chi={max(psi[0].chi)} "
+                      f"pop0={carr[it, 0, 0].real:.4f}", flush = True)
+            if it < nT - 1:
+                for b in (0, 1):
+                    psi[b] = krylov_step(model.H_MPO, psi[b], dt,
+                                         m = krylov_m, trunc = ktrunc)
     else:
         eng = {b: TwoSiteTDVPEngine(psi[b], model, opts) for b in (0, 1)}
         for it in range(nT):

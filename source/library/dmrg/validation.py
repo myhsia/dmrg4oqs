@@ -152,11 +152,72 @@ def test_chain_multi_mode(tol = 0.05, nmax = 10, chi = 64, dt = 0.1):
     return worst, tol
 
 
+def test_krylov(tol = 0.01, nmax = 8, chi = 128, dt = 0.025):
+    """Global Krylov step against exact diagonalization (one/two modes).
+
+    The N=2 residual (1e-3) is the ``nmax = 8`` truncation and is identical for
+    the TDVP engine; Krylov and TDVP themselves agree to 6e-6 on the same model.
+    """
+    epsilon, Delta, beta = 1.0, 1.0, 0.6
+    worst = 0.0
+    for omega, c in [(np.array([4.0]), np.array([0.6])),
+                     (np.array([1.2, 6.0]), np.array([0.5, 0.4]))]:
+        t = np.linspace(0.0, 0.4, int(round(0.4 / dt)) + 1)
+        ex = exact_obs(epsilon, Delta, omega, c, beta, t, Nf = 20)
+        res = chain_free_krylov(epsilon, Delta, omega, c, beta, t, nmax = nmax,
+                                chi = chi, dt = dt)
+        res["Cmu"] = res["Cmu"] / res["Cmu"][0]
+        ex["Cmu"] = ex["Cmu"] / ex["Cmu"][0]
+        worst = max(worst, _cmp(res, ex))
+    return worst, tol
+
+
+def chain_free_krylov(epsilon, Delta, omega, c, beta, t, nmax = 8, chi = 128,
+                      dt = 0.025, m = 10):
+    """Star-model observables with the global Krylov engine."""
+    from dmrg.tdmrg import run_observables as run_star
+    return run_star(epsilon, Delta, omega, c, beta, t, nmax = nmax, chi = chi,
+                    dt = dt, engine = "krylov", krylov_m = m)
+
+
+def test_propagators(tol = 1e-9):
+    """Exact/Krylov steps against ``expm``, and the Cayley spectral identity.
+
+    ``expm(-iH dt)`` composed ``n`` times is ``expm(-iH n dt)``; so is a
+    converged Krylov step.  A Cayley step is also a function of ``H``, and its
+    composition is exactly ``expm(-i t Heff)`` with
+    ``Heff = 2 atan(H dt/2)/dt`` -- a *nonlinear* function of ``H``, hence an
+    anharmonic distortion of a harmonic bath rather than a uniform frequency
+    shift.
+    """
+    from scipy.linalg import expm
+
+    from dmrg.integrator import apply as step
+    from dmrg.integrator import free_mode_hamiltonian
+
+    w, Nf, tf, dt = 40.0, 24, 2.0, 0.2
+    H, _ = free_mode_hamiltonian(w, Nf)
+    steps = int(round(tf / dt))
+    exact = expm(-1j * H * tf)
+    heff = 2.0 * np.arctan(0.5 * H * dt) / dt
+    cayley_exact = expm(-1j * heff * tf)
+    worst = 0.0
+    for method, want in (("cayley", cayley_exact), ("exact", exact),
+                         ("lanczos", exact)):
+        U = np.eye(Nf, dtype = complex)
+        for _ in range(steps):
+            U = step(method, H, U, dt, m = 20)
+        worst = max(worst, float(np.max(np.abs(U - want))))
+    return worst, tol
+
+
 TESTS = [
     ("bare electronic system (two-level Rabi)", test_bare),
     ("single harmonic mode", test_single_mode),
     ("single quartic mode (anharmonic bath)", test_single_mode_anharmonic),
     ("chain-mapped TDVP (one/two modes)", test_chain_multi_mode),
+    ("propagators (exact/Krylov/Cayley)", test_propagators),
+    ("global Krylov step vs ED", test_krylov),
 ]
 
 
