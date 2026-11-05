@@ -36,13 +36,26 @@ All code is under `source/`, the working directory for the drivers (paths such a
   `a2 = 0` reduces it to the linear HEOM.
 - `source/library/dmrg/` — `chain.py` (star→Lanczos chain, two-site TDVP, thermofield-double bath),
   `model.py` (star MPS, coupling MPO, per-mode squeezed classical state), `tdmrg.py` (shared
-  observable extraction), `integrator.py` (propagator comparison on the exact state: exact
-  exponential vs Krylov vs Cayley), `validation.py` (regression suite).
+  observable extraction, the star path), `krylov.py` (global Krylov engine: exact on the projected
+  Krylov space, worse than TDVP at fixed `chi`), `integrator.py` (propagator comparison on the
+  exact state: exact exponential vs Krylov vs Cayley), `validation.py` (regression suite).
 - `source/environment.yaml`, `source/requirements.txt` — the `dmrg` conda environment.
 
 **Canonical archives** are `corrmat_<method>[_<label>].npz`.  The per-curve
 `{pop,cohe,cohem,corr,xorr}_<method>_<case>.npz` files are legacy from the pre-corrmat workflow;
 no script reads them, and they are archived out of `output/data/<prefix>/`.
+
+## Environment
+
+- conda environment `dmrg` (`source/environment.yaml` + `source/requirements.txt`), interpreter
+  pinned to `python=3.15`; the CI action `dmrg-env` builds the same environment, so local and CI
+  agree.
+- Run every command from `source/` with the environment active; the drivers resolve `./config`,
+  `./output` and `../../mkct4oqs/...` relative to it.
+- Entry points: `dmrg.py` (dynamics), `reference.py` (HEOM / extended DEOM), `dmrg_error.py`
+  (score), `FIG0@corrmat.py` / `FIG4@robustness.py` (figures), `check_bath.py` and
+  `library/dmrg/validation.py` (validation).  Data land in `output/data/<prefix>/`, figures in
+  `output/figures/`; both are gitignored.
 
 ## Method
 
@@ -251,7 +264,7 @@ matrix into the five observables.
   protocol uses.)  `-engine krylov` builds the global Krylov space
   `{psi, H psi, ..., H^{m-1} psi}` as MPS (`m = 10`), exponentiates the `m x m` projection
   exactly and truncates once when forming the combination.  It is the vector-space analogue
-  of the moment/continued-fraction construction, it agrees with ED to 1e-9 (one mode) and with
+  of the exact moment expansion, it agrees with ED to 1e-9 (one mode) and with
   TDVP to 6e-6 on the same model (`validation.py`) -- and it is **much worse than TDVP at fixed
   chi, and does not improve with chi**.  Measured (qhm, star, N=16, nmax=8, `dt = 0.025`,
   `t <= 2`):
@@ -287,19 +300,51 @@ matrix into the five observables.
 
 ```bash
 cd source
-python reference.py                             # reference corrmat -> output/data/<prefix>/
-python dmrg.py A-base_line                 # four cases -> output/data/A-base_line/
+python reference.py -prefix A-base_line          # HEOM corrmat -> output/data/A-base_line/
+python dmrg.py A-base_line -geometry star -N 16 -nmax 16 -chi 64 -dt 0.025 \
+       -t0 0 -t1 4 -nproc 4 -njobs 2             # four cases -> corrmat_dmrg_*
+python dmrg_error.py --cases qhm --window 4       # Frobenius table -> output/dmrg_error.{json,md}
 python FIG0@corrmat.py -ref ../../mkct4oqs/source/output/data
 python FIG4@robustness.py -ref ../../mkct4oqs/source/output/data
-python library/dmrg/validation.py          # regression suite
-python library/dmrg/integrator.py          # propagator study -> output/integrator_report.{json,md}
+python check_bath.py -N 16 -nmax 16 -chi 96       # bath correlator against the analytic curve
+python library/dmrg/validation.py                 # regression suite
+python library/dmrg/integrator.py                 # propagator study -> output/integrator_report.{json,md}
 ```
+
+The flags above are the calibrated protocol; `python dmrg.py A-base_line` with no flags runs the
+defaults (`N=20`, `nmax=6`, `chi=128`, `dt=0.02`), which is **not** the protocol the validity table
+was measured with.
+
+## Validation
+
+Two checks, both runnable locally without the CI:
+
+```bash
+cd source
+python library/dmrg/validation.py     # exact diagonalization for N <= 3, tolerance ~1e-2
+python check_bath.py                  # static <Q^2> fraction and the bath correlator
+```
+
+- `library/dmrg/validation.py` covers the bare two-level system, one harmonic mode, one quartic
+  mode, a chain multimode case, the Krylov engine and the propagators.  It reproduces exact
+  diagonalization for N <= 3 to `~1e-2`, which is the evidence that the mapping and the observable
+  algebra are right.
+- `check_bath.py` evolves the bath alone and prints the static `<Q^2>` fraction and the relative
+  error of `Re<Q(t)Q(0)>` against `sum_j c_j^2 (1/2) coth(beta w_j/2) cos(w_j t)`; a thermal state
+  that is too mixed shows up here first.
+- The scientific statement (which parameter was shown to converge, and to what) is the "Validity
+  (measured, not assumed)" section above; this section only covers the commands and criteria.
 
 ## CI
 
-- `.github/workflows/ci.yaml` — syntax check, regression suite, and HEOM import.
+- `.github/workflows/ci.yaml` — syntax check, regression suite, and HEOM import; runs on push and
+  on the daily schedule (`cron: '41 9 * * *'`).  The environment cache key carries the UTC date, so
+  the scheduled run re-solves the dependency set once a day.
 - `.github/workflows/dmrg.yaml` — manual matrix over `<config> × <case>`; artifacts
   `dmrg-<config>-<case>`.  Retrieve with `gh run download <id> -D <tmp>`.
+- `.github/workflows/bath.yaml` — manual bath-validity run of `check_bath.py` at the given
+  `N` / `nmax` / `chi` / `tf` / `dt`; kept separate from `ci.yaml` so a push cannot cancel a long
+  validity run.
 
 No token is needed: this repository is public and self-contained.
 
