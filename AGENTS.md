@@ -352,3 +352,10 @@ No token is needed: this repository is public and self-contained.
 
 See the maintainer's shared `repo-rules` skill (`type(scope): summary`; commit only when asked;
 never commit secrets or `output/`).
+
+## History note (2026-11-05)
+
+`main` was rewritten to fold the spaced-`=` house style into history — **all commit shas changed**
+and the remote was force-pushed.  Rollback bundles live outside the repository (workspace
+`admin/backups/`); the recovery commands and the lifecycle rule are in the workspace guide's
+"History rewrite backups" section.  Delete this section when the bundles are deleted.
