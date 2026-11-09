@@ -351,15 +351,13 @@ python check_bath.py                  # static <Q^2> fraction and the bath corre
   (measured, not assumed)" section above; this section only covers the commands and criteria.
 
 ## CI
-**Dependabot proposes, CI decides.**  `.github/dependabot.yml` watches
-`github-actions` daily and, for the `conda` ecosystem (the interpreter pin in
-`source/environment.yaml`), ignores **patch** releases of `python`: a patch carries no
-scientific change and is the class most likely to break the compiled extensions (numba,
-physics-tenpy).  The pin therefore moves deliberately, in step with the sibling
-repositories, and only once `build_env` resolves the environment and the suite is green --
-an update is "the latest version compatible with the required packages" exactly when that
-gate passes, which Dependabot itself cannot establish (`requirements.txt` is intentionally
-unpinned, so the libraries float to latest at install time).
+**Dependencies: the bot proposes, CI decides** (the policy and its reasoning are in the
+machine-global `repo-rules` skill, "Local and CI parity").  `.github/dependabot.yml` watches
+`github-actions` daily and, for the `conda` ecosystem, ignores **patch** releases of `python` -- no
+functional change, and the class most likely to break the compiled extensions.  The pin in
+`source/environment.yaml` moves deliberately, in step with the sibling repositories, and only once
+`build_env` resolves the environment and the suite is green.  `requirements.txt` is intentionally
+unpinned, so the libraries float to latest at install time.
 
 - `.github/workflows/ci.yaml` — syntax check, regression suite, and HEOM import; runs on push and
   on the daily schedule (`cron: '41 9 * * *'`).  The environment cache key carries the UTC date, so
