@@ -249,6 +249,8 @@ The **canonical** `source/reference.py`, `source/config/`, and
 `source/library/{qutils,fsutils,pltools,extended_deom,mre,corrmat}.py` live in the private `mkct4oqs`
 repository.  This
 repository keeps **synced copies** so that a public clone and the CI work without a token.
+The latest sync adds `GridPlt._pin_xlabel` to the synced `pltools.py` (a baseline-pinned
+x-label, used by the canonical Padé figure); it is unused in this repository.
 
 > **Sync reminder.**  After changing any of them in `mkct4oqs`, run
 > `bash tools/sync_from_mkct.sh` here, then commit and push.  `sh4oqs` mirrors the same pieces
