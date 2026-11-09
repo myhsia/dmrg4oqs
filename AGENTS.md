@@ -268,6 +268,9 @@ the five observables.
 
 - Set `sys.pycache_prefix = os.path.abspath("./output/pycache")` **after** third-party imports and
   **before** the first project import in every run script.
+- Both `MPS.from_Bflat` calls (`model.init_mps`, `chain._infinite_T_mps`) pass
+  `unit_cell_width = lat.mps_unit_cell_width`; TeNPy warns eight times per run without it and will
+  make the argument mandatory.
 - Run everything from `source/` with the `dmrg` environment active.
 - Four cases: `QHM`, `QAH`, `CHM`, `CAH`.  The anharmonic quartic coefficient is
   `a = anharmon * sqrt(7/6)`.
