@@ -259,8 +259,10 @@ x-label, used by the canonical Padé figure); it is unused in this repository.
 > `corrmat_heom.npz` archives and `FIG0`/`FIG4` read them from `./output/data`.
 
 `fsutils.py` also carries the grouped-archive writer/loader (`save_group`/`load_group`) used by
-the reference (`corrmat_heom.npz`) and the companion's MKCT results; `corrmat.py` contracts the
-matrix into the five observables.
+the reference (`corrmat_heom.npz`) and the companion's MKCT results: one entry per case under its
+case name, each with its **own** time axis stored as `t_<case>` (there is no shared `t`), plus
+optional `identifier`/`component`/`branch` metadata arrays; `corrmat.py` contracts the matrix into
+the five observables.
 
 ## Conventions
 
