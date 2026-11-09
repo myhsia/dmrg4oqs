@@ -264,6 +264,8 @@ matrix into the five observables.
 
 ## Conventions
 
+- Set `sys.pycache_prefix = os.path.abspath("./output/pycache")` **after** third-party imports and
+  **before** the first project import in every run script.
 - Run everything from `source/` with the `dmrg` environment active.
 - Four cases: `QHM`, `QAH`, `CHM`, `CAH`.  The anharmonic quartic coefficient is
   `a = anharmon * sqrt(7/6)`.
