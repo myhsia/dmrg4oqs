@@ -336,6 +336,15 @@ python check_bath.py                  # static <Q^2> fraction and the bath corre
   (measured, not assumed)" section above; this section only covers the commands and criteria.
 
 ## CI
+**Dependabot proposes, CI decides.**  `.github/dependabot.yml` watches
+`github-actions` daily and, for the `conda` ecosystem (the interpreter pin in
+`source/environment.yaml`), ignores **patch** releases of `python`: a patch carries no
+scientific change and is the class most likely to break the compiled extensions (numba,
+physics-tenpy).  The pin therefore moves deliberately, in step with the sibling
+repositories, and only once `build_env` resolves the environment and the suite is green --
+an update is "the latest version compatible with the required packages" exactly when that
+gate passes, which Dependabot itself cannot establish (`requirements.txt` is intentionally
+unpinned, so the libraries float to latest at install time).
 
 - `.github/workflows/ci.yaml` — syntax check, regression suite, and HEOM import; runs on push and
   on the daily schedule (`cron: '41 9 * * *'`).  The environment cache key carries the UTC date, so
@@ -353,9 +362,3 @@ No token is needed: this repository is public and self-contained.
 See the maintainer's shared `repo-rules` skill (`type(scope): summary`; commit only when asked;
 never commit secrets or `output/`).
 
-## History note (2026-11-05)
-
-`main` was rewritten to fold the spaced-`=` house style into history — **all commit shas changed**
-and the remote was force-pushed.  Rollback bundles live outside the repository (workspace
-`admin/backups/`); the recovery commands and the lifecycle rule are in the workspace guide's
-"History rewrite backups" section.  Delete this section when the bundles are deleted.
