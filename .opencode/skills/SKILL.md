@@ -153,3 +153,8 @@ two-level, single harmonic mode, single quartic mode, chain multimode, Krylov an
 checks), which shows the mapping and the observable algebra are sound; `check_bath.py` prints the
 static `<Q^2>` fraction and the relative error of `Re<Q(t)Q(0)>` against
 `sum_j c_j^2 (1/2) coth(beta w_j/2) cos(w_j t)`, which is where a bad thermal state shows up first.
+
+It is also the guard for a silent contraction bug: `get_expval_ABrho0` must pair `Tr[A phi^dagger]`
+with `phi[m, n]` (`einsum("mn,kmn->k", A, basis_list.conj())`).  A flipped index order conjugates
+non-real operators and leaves the populations intact — only the coherence phases move — so the
+observable suite is what catches it; a diffusion or population check alone does not.
