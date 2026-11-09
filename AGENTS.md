@@ -303,6 +303,10 @@ matrix into the five observables.
   converged; the weight-based per-mode schedule is not valid, see above) and χ ≥ 32 are needed.  **`dt ≲ 0.025`** at χ = 64 (`0.05 -> 9.0 %`,
   `0.025 -> 3.75 %`, `0.0125 -> 3.77 %`); the limit is per-step bond truncation, *not* the
   exponential, which is exact to round-off at `dt = 0.05` (see the propagator section).
+- **`A-base_line_tf6`** is a **testing-only** config, absent from every `RUNLIST`: it inherits
+  `A-base_line` and cuts `xlims` to `[[0, 6], 2]`.  It serves the window/convergence checks, not
+  the demo figures, because the DMRG reference is not stable over the longer window (see
+  Validity).  It is synced from `mkct4oqs` with the rest of `source/config/`.
 - Coding style: see the maintainer's shared `repo-rules` skill.
 
 ## Workflows
@@ -363,6 +367,9 @@ unpinned, so the libraries float to latest at install time).
 - `.github/workflows/bath.yaml` — manual bath-validity run of `check_bath.py` at the given
   `N` / `nmax` / `chi` / `tf` / `dt`; kept separate from `ci.yaml` so a push cannot cancel a long
   validity run.
+- `.github/actions/dmrg-env/action.yml` — composite action shared by the three workflows: caches
+  the conda package dir and pip (keyed on `source/environment.yaml` / `source/requirements.txt`),
+  restores the `dmrg` environment, and builds/saves it when the `build` input is true.
 
 No token is needed: this repository is public and self-contained.
 

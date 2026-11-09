@@ -36,6 +36,9 @@ jobs:
           python-version: "3.x"
 
       - name: Byte-compile the sources
+        env:
+          # Keep the checkout free of __pycache__ (the same command is used locally).
+          PYTHONPYCACHEPREFIX: ${{ runner.temp }}/pycache
         run: python -m compileall -q -x '(^|[/\\])output([/\\]|$)' source
 
   build_env:
