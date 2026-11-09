@@ -1,6 +1,6 @@
 ---
 name: heom-dmrg
-description: HEOM and MPS/tDMRG reference dynamics for the spin-boson model (harmonic and anharmonic bath, linear and quadratic coupling)
+description: HEOM and MPS/tDMRG reference dynamics for the spin-boson model (harmonic and anharmonic bath, linear and quadratic coupling) — use when generating, validating or interpreting the exact reference correlation functions that the other methods are scored against
 license: MIT
 compatibility: opencode
 metadata:
