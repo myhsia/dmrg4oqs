@@ -11,6 +11,13 @@ these restrictions.
 Scientific background and methodology are described in
 [`.opencode/skills/SKILL.md`](./.opencode/skills/SKILL.md); load the `heom-dmrg` skill for the physics.
 
+## Shared rules
+
+Repository etiquette (preserve uncommitted changes and staging, commit by pathspec, keep the guides
+in sync), Python coding style, the git/PR workflow, LaTeX writing and source conventions,
+tooling/upkeep, and local/CI parity live in the global `repo-rules` skill
+(`~/.config/opencode/skills/repo-rules/SKILL.md`).
+
 ## Layout
 
 All code is under `source/`, the working directory for the drivers (paths such as `./config` and
