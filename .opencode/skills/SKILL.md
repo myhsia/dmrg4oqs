@@ -74,8 +74,8 @@ engine.
 complete unsegmented `-case all` run, the grouped `corrmat_dmrg[_<tag>].npz` (one matrix per
 case, `branch = component = ("00","01","10","11")`, `C(0) = I`).  The synced
 `FIG0@corrmat.py` draws the 4x4 `C_ij(t)` pages as `corrmat-dmrg@<prefix>.pdf` and
-`FIG4@robustness.py` the `<method>@<prefix>[_<label>].pdf` comparison, overlaying
-`corrmat_heom.npz` when it is pointed at with `-ref`.
+`FIG4@robustness.py` the `<method>@<prefix>[_<label>].pdf` comparison, overlaying the
+reference `corrmat_heom.npz` from the data root `./output/data` (`-ref DIR` for another root).
 
 ## What the reference supports
 
@@ -142,8 +142,8 @@ python reference.py -prefix A-base_line        # HEOM corrmat -> output/data/A-b
 python dmrg.py A-base_line -geometry star -N 16 -nmax 16 -chi 64 -dt 0.025 \
        -t0 0 -t1 4 -nproc 4 -njobs 2           # four cases -> corrmat_dmrg_*
 python dmrg_error.py --cases qhm --window 4     # Frobenius table -> output/dmrg_error.{json,md}
-python FIG0@corrmat.py -ref ../../mkct4oqs/source/output/data
-python FIG4@robustness.py -ref ../../mkct4oqs/source/output/data
+python FIG0@corrmat.py                          # corrmat-dmrg@<prefix>.pdf
+python FIG4@robustness.py                       # dmrg@<prefix>.pdf
 python check_bath.py -N 16 -nmax 16 -chi 96     # bath correlator against the analytic curve
 python library/dmrg/validation.py               # regression suite (ED for N <= 3)
 ```

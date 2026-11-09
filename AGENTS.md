@@ -21,10 +21,10 @@ All code is under `source/`, the working directory for the drivers (paths such a
   `-case all` run, the grouped `corrmat_dmrg.npz` (one matrix per case,
   `branch = component = ("00","01","10","11")`, `C(0) = I`).
 - `source/FIG0@corrmat.py`, `source/FIG4@robustness.py` — synced copies of the canonical
-  figure scripts: `python FIG0@corrmat.py -ref ../../mkct4oqs/source/output/data` draws the
-  4x4 `C_ij(t)` pages of every method found here and
-  `python FIG4@robustness.py -ref ../../mkct4oqs/source/output/data` the
-  `dmrg@<prefix>.pdf` comparison figure (replacing the retired `plot_dmrg.py`).
+  figure scripts: `python FIG0@corrmat.py` draws the 4x4 `C_ij(t)` pages of every method found
+  here and `python FIG4@robustness.py` the `dmrg@<prefix>.pdf` comparison figure.  Both read the
+  reference `corrmat_heom.npz` from the data root `./output/data` by default; this repository
+  generates its own with `reference.py`, so no link is needed (`-ref DIR` points at another root).
 - `source/reference.py` — reference dynamics (qutip `HEOMSolver` for linear coupling; the extended
   DEOM, i.e. the dissipaton hierarchy, in `library/extended_deom.py` for quadratic coupling), writing
   only the basis correlation matrix `output/data/<prefix>/corrmat_heom.npz` (one `(t, C)` pair
@@ -245,7 +245,9 @@ repository keeps **synced copies** so that a public clone and the CI work withou
 
 > **Sync reminder.**  After changing any of them in `mkct4oqs`, run
 > `bash tools/sync_from_mkct.sh` here, then commit and push.  `sh4oqs` mirrors the same pieces
-> and needs the same sync.
+> and needs the same sync.  The synced `tools/link_heom.sh` is the no-op case here: this
+> repository generates the reference itself with `reference.py`, so it holds the real
+> `corrmat_heom.npz` archives and `FIG0`/`FIG4` read them from `./output/data`.
 
 `fsutils.py` also carries the grouped-archive writer/loader (`save_group`/`load_group`) used by
 the reference (`corrmat_heom.npz`) and the companion's MKCT results; `corrmat.py` contracts the
@@ -304,8 +306,8 @@ python reference.py -prefix A-base_line          # HEOM corrmat -> output/data/A
 python dmrg.py A-base_line -geometry star -N 16 -nmax 16 -chi 64 -dt 0.025 \
        -t0 0 -t1 4 -nproc 4 -njobs 2             # four cases -> corrmat_dmrg_*
 python dmrg_error.py --cases qhm --window 4       # Frobenius table -> output/dmrg_error.{json,md}
-python FIG0@corrmat.py -ref ../../mkct4oqs/source/output/data
-python FIG4@robustness.py -ref ../../mkct4oqs/source/output/data
+python FIG0@corrmat.py                            # corrmat-dmrg@<prefix>.pdf
+python FIG4@robustness.py                         # dmrg@<prefix>.pdf
 python check_bath.py -N 16 -nmax 16 -chi 96       # bath correlator against the analytic curve
 python library/dmrg/validation.py                 # regression suite
 python library/dmrg/integrator.py                 # propagator study -> output/integrator_report.{json,md}
