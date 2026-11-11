@@ -46,6 +46,9 @@ All code is under `source/`, the working directory for the drivers (paths such a
   observable extraction, the star path), `krylov.py` (global Krylov engine: exact on the projected
   Krylov space, worse than TDVP at fixed `chi`), `integrator.py` (propagator comparison on the
   exact state: exact exponential vs Krylov vs Cayley), `validation.py` (regression suite).
+  `model.py` takes `thermal_weights`, `thermal_variances` and `ladder_ops` from the synced
+  `qutils`; `integrator.py` takes `Pauli`, `ladder_ops` and `ohmic_modes`, and `validation.py`
+  `Pauli`, `basis`, `ladder_ops` and `qubit`.
 - `source/environment.yaml`, `source/requirements.txt` — the `dmrg` conda environment.
 
 **Canonical archives** are `corrmat_<method>[_<label>].npz`.  The per-curve
