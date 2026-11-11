@@ -357,6 +357,19 @@ python check_bath.py                  # static <Q^2> fraction and the bath corre
 - The scientific statement (which parameter was shown to converge, and to what) is the "Validity
   (measured, not assumed)" section above; this section only covers the commands and criteria.
 
+**Session check.**  The `upkeep` plugin runs one check declared here at session start, with the
+repository as the working directory, so it can cover what CI cannot: the gitignored local data.
+
+Session check: `source/tools/session_check.sh`
+
+`session_check.sh` (with `session_check.py`, both synced from `mkct4oqs`) exits 0 silently when
+clean, 1 with one line per problem --- a dangling `output/data` symlink, an unparseable
+`config/*.yaml`, or an archive that is not a zip or whose `t_<case>` axis disagrees with its
+`<case>` array --- and 2 when no interpreter with numpy and yaml can be found.  The archive rule is
+generic over the `t_<case>`/`<case>` pair, so it covers this repository's `corrmat_dmrg_<case>.npz`
+and the grouped `corrmat_dmrg.npz` as well as the moments archives.  It reads array headers only,
+so it costs about a second.
+
 ## CI
 **Dependencies: the bot proposes, CI decides** (the policy and its reasoning are in the
 machine-global `repo-rules` skill, "Local and CI parity").  `.github/dependabot.yml` watches

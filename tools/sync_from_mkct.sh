@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Sync the shared pieces from the canonical ../mkct4oqs checkout.
-# mkct4oqs owns reference.py, the configs, and qutils/fsutils/pltools/mre/extended_deom;
-# this repository keeps synced copies so that a public clone and the CI work without a token.
+# mkct4oqs owns reference.py, the configs, qutils/fsutils/pltools/mre/extended_deom/corrmat
+# and tools/{link_heom,session_check}; this repository keeps synced copies so that a public
+# clone and the CI work without a token.
 # Run after changing them in mkct4oqs, then commit and push here.
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -15,4 +16,5 @@ cp "$src/library/qutils.py" "$src/library/fsutils.py" "$src/library/pltools.py" 
 cp "$src/library/extended_deom.py" "$root/source/library/"
 cp "$src/library/mre.py" "$src/library/corrmat.py" "$root/source/library/"
 cp "$src/tools/link_heom.sh" "$root/source/tools/"
-echo "synced config/, reference.py, the FIG scripts and qutils/fsutils/pltools/extended_deom/mre/corrmat.py and tools/link_heom.sh from $src"
+cp "$src/tools/session_check.sh" "$src/tools/session_check.py" "$root/source/tools/"
+echo "synced config/, reference.py, the FIG scripts and qutils/fsutils/pltools/extended_deom/mre/corrmat.py, tools/link_heom.sh and tools/session_check.{sh,py} from $src"
