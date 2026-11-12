@@ -13,8 +13,13 @@ rsync -a --delete "$src/config/" "$root/source/config/"
 cp "$src/reference.py" "$root/source/reference.py"
 cp "$src/FIG0@corrmat.py" "$src/FIG4@robustness.py" "$root/source/"
 cp "$src/library/qutils.py" "$src/library/fsutils.py" "$src/library/pltools.py" "$root/source/library/"
+cp "$src/library/paths.py" "$root/source/library/"
 cp "$src/library/extended_deom.py" "$root/source/library/"
 cp "$src/library/mre.py" "$src/library/corrmat.py" "$root/source/library/"
 cp "$src/tools/link_heom.sh" "$root/source/tools/"
+cp "$root/../mkct4oqs/tools/build_binary.sh" "$root/../mkct4oqs/tools/fetch-binaries.sh" \
+   "$root/../mkct4oqs/tools/push-binaries.sh" "$root/../mkct4oqs/tools/verify_binary.py" \
+   "$root/tools/"
+
 cp "$src/tools/session_check.sh" "$src/tools/session_check.py" "$root/source/tools/"
-echo "synced config/, reference.py, the FIG scripts and qutils/fsutils/pltools/extended_deom/mre/corrmat.py, tools/link_heom.sh and tools/session_check.{sh,py} from $src"
+echo "synced config/, reference.py, the FIG scripts and qutils/fsutils/pltools/paths/extended_deom/mre/corrmat.py, tools/link_heom.sh, the frozen-binary tools and tools/session_check.{sh,py} from $src"

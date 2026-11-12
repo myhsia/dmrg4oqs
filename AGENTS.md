@@ -249,7 +249,7 @@ itself against `sum_j c_j^2 (1/2) coth(beta w_j/2) cos(w_j t)`.
 ## Shared pieces (mirrored from `mkct4oqs`)
 
 The **canonical** `source/reference.py`, `source/config/`, and
-`source/library/{qutils,fsutils,pltools,extended_deom,mre,corrmat}.py` live in the private `mkct4oqs`
+`source/library/{qutils,fsutils,pltools,paths,extended_deom,mre,corrmat}.py` live in the private `mkct4oqs`
 repository.  This
 repository keeps **synced copies** so that a public clone and the CI work without a token.
 The latest sync adds `GridPlt._pin_xlabel` to the synced `pltools.py` (a baseline-pinned
@@ -397,6 +397,61 @@ unpinned, so the libraries float to latest at install time.
   restores the `dmrg` environment, and builds/saves it when the `build` input is true.
 
 No token is needed: this repository is public and self-contained.
+
+## Frozen binaries
+
+`tools/build_binary.sh dmrg` freezes the driver with PyInstaller 6.22 (onedir) into `dist/dmrg/`,
+packs `dist/dmrg-<os>-<arch>.tar.gz`, and runs `--version` plus `tools/verify_binary.py` on the
+frozen executable **before** packing.  The bundle carries `_buildinfo.json` (git sha, build date, interpreter,
+`pip freeze`, excluded modules) and **no configuration**: a packed binary takes its YAMLs from the
+filesystem.  Platforms: `linux-x64`, `linux-arm64`, `macos-arm64`; macOS x86_64 is absent because
+`llvmlite` has shipped no Intel-mac wheel since 0.46.0, so the sibling `sh4oqs` driver cannot be
+built there and one platform set is kept across the three repositories.
+
+- **Configs are arguments, never payload.**  The positional configs accept names, `.yaml` paths or
+  glob patterns (`'config/*.yaml'`), expanded by the driver itself; `-config-dir DIR` says where
+  bare names live (default `./config`, then the `config/` beside the bundle when frozen).  A
+  missing config is `error: no config file at …` and exit 1.
+- **The bundle is the compute path only.**  `qutip`, `matplotlib`, `PIL`, `lxml`, `tkinter`,
+  `IPython` and `pytest` are excluded — matplotlib came in through `pltools`, and `parse_xlims`
+  now lives in `fsutils` (re-exported by `pltools` for the figure scripts), so plotting stays a
+  local job.
+- **The entry module is copied to `<driver>_main.py` before freezing.**  `dmrg.py` does
+  `from dmrg import chain`, and an entry script named `dmrg` shadowed the library package
+  ("partially initialized module 'dmrg'").  The copy keeps the driver byte-identical and the
+  package unambiguous.
+- **Linux is built inside `quay.io/pypa/manylinux_2_28_*` (glibc 2.28), not on the runner.**  The
+  HPC login node is Rocky Linux 9.6 / **glibc 2.34**, so a binary built on `ubuntu-22.04` (2.35)
+  does not start there.  CI proves the floor twice: `objdump -T` over every bundled ELF for its
+  highest `GLIBC_` symbol, then the packed tarball run in a bare `rockylinux:9` container.
+- **Publishing.**  `.github/workflows/binaries.yaml` runs when `CI` finishes **green on `main`**
+  (and on manual dispatch), and publishes a release tagged `bin-<sha7>` with the tarball, its
+  `.sha256`, and `dmrg-<platform>.json`.
+- **Fetching.**  `bash tools/fetch-binaries.sh dmrg [-p PLATFORM]... [ref]` downloads all three
+  platforms into `./dist/` by default (`-p` restricts), checks each checksum, manifest sha,
+  archive member and machine type, and extracts plus verifies only the **host** asset; a foreign
+  asset's runtime proof is the CI run and, for `linux-x64`, the push below.  A commit with no
+  release falls back to the newest `bin-*` one and prints the sha it received.
+- **Pushing to the cluster.**  `bash tools/push-binaries.sh dmrg [ref]` fetches `linux-x64`,
+  uploads it with `source/config`, extracts in `~/oqs-bin` with up to three attempts, runs
+  `--version` and the verifier there and closes the connection.  Manual only.
+
+**The rule.**  A *fundamental* change (driver, shared library, config, requirements) is not
+finished until the `bin-<sha7>` release exists for that commit and `fetch-binaries.sh` has
+downloaded it with a passing numeric check; `*.md` is not fundamental.  Report the sha and the
+verification line.
+
+On the cluster: extract `dist/dmrg-linux-x64.tar.gz` and the configs in the home directory, then
+`python3 verify_binary.py dmrg dmrg/dmrg` once on the login node and `./dmrg/dmrg A-base_line -geometry star …`
+inside Slurm jobs.  No Python, network or modules are needed; the configs come from `-config-dir`
+or a `config/` beside the `dmrg/` directory, and `-outdir` redirects the data tree.
+
+**Measured (2026-11-12, macOS 27 arm64, Python 3.14.7)**: after the compute-only trimming the
+tarball is 32 MB (60 MB unpacked) and the frozen verification reproduces the source value to
+1.9e-14 relative — across interpreters, since the source run used Python 3.15.2/numpy 2.5.4 and
+the frozen bundle 3.14.7/2.5.3.  The Linux side is measured too: the workflow's bare
+`rockylinux:9` run passes, and on the cluster itself (Rocky 9.6, glibc 2.34) the `linux-x64`
+bundle reports its commit sha and passes the numeric verification.
 
 ## Git style
 
