@@ -12,13 +12,17 @@ driver would hit later, and that a workspace rename produces in bulk
 This file is a **canonical shared piece**: it stays generic over any archive
 that pairs ``t_<case>`` with a ``<case>`` array (``moments.*.npz``,
 ``corrmat_*.npz``, ``corr_*.npz`` alike), so ``dmrg4oqs`` keeps a synced copy
-(``tools/sync_from_mkct.sh``) and declares it as its own session check.
+(``tools/sync_from_mkct.sh``) and declares it as its own session check.  Its
+one non-archive item is equally generic: where a checkout pairs a manuscript
+``context/<name>.tex`` with a ``context/<name>-talk.tex``, it reports a
+manuscript commit that did not carry the talk, so the next session is told.
 
 Array *headers* only -- the archives are ~10 MB each and the plugin allows ten
 seconds.  Exit 0 is clean and silent, 1 lists the problems one per line.
 """
 import glob
 import os
+import subprocess
 import sys
 import zipfile
 
@@ -95,6 +99,43 @@ def check(root):
                     "archive %s: %s has %d points, %s has %d"
                     % (rel(path), key, shapes[key][0], case, shapes[case][0])
                 )
+    # 4. The manuscript and its talk move together.  Where a checkout pairs
+    #    context/<name>.tex with a context/<name>-talk.tex, the talk's newest
+    #    commit must not be an ancestor of the manuscript's: that is the state a
+    #    session leaves behind when it edits the text and not the slides, and it
+    #    is what this check is allowed to say out loud.  A checkout without such
+    #    a pair says nothing here, which is why the file stays syncable to the
+    #    sibling repositories.
+    def last_commit(root, paths):
+        """The newest commit touching any of `paths`, or "" for none."""
+        try:
+            done = subprocess.run(
+                ["git", "-C", root, "log", "-1", "--format=%H", "--"] + paths,
+                stdout = subprocess.PIPE, stderr = subprocess.DEVNULL,
+                universal_newlines = True, timeout = 5,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return ""                     # no git here: nothing to compare
+        return done.stdout.strip()
+
+    context = os.path.join(root, "context")
+    for path in sorted(glob.glob(os.path.join(context, "*.tex"))):
+        if path.endswith("-talk.tex"):
+            continue
+        if not os.path.exists(path[:-4] + "-talk.tex"):
+            continue
+        manuscript = last_commit(root, [os.path.relpath(path, root)])
+        talk = last_commit(root, ["%s/*-talk.tex" % os.path.relpath(context, root)])
+        if not manuscript or not talk or manuscript == talk:
+            continue
+        ancestor = subprocess.run(
+            ["git", "-C", root, "merge-base", "--is-ancestor", talk, manuscript],
+            stdout = subprocess.DEVNULL, stderr = subprocess.DEVNULL)
+        if ancestor.returncode == 0:
+            bad.append(
+                "talk older than the manuscript: %s last changed in %s, the talk"
+                " in %s" % (rel(path), manuscript[:7], talk[:7]))
+
     return bad
 
 

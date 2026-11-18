@@ -370,7 +370,10 @@ Session check: `source/tools/session_check.sh`
 `session_check.sh` (with `session_check.py`, both synced from `mkct4oqs`) exits 0 silently when
 clean, 1 with one line per problem --- a dangling `output/data` symlink, an unparseable
 `config/*.yaml`, or an archive that is not a zip or whose `t_<case>` axis disagrees with its
-`<case>` array --- and 2 when no interpreter with numpy and yaml can be found.  The archive rule is
+`<case>` array --- and 2 when no interpreter with numpy and yaml can be found.  The synced `.py`
+also carries the talk rule generically: where a checkout pairs `context/<name>.tex` with a
+`context/<name>-talk.tex`, it reports `talk older than the manuscript` when the talk's newest commit
+is an ancestor of the manuscript's.  This checkout has no such pair, so the item is silent here.  The archive rule is
 generic over the `t_<case>`/`<case>` pair, so it covers this repository's `corrmat_dmrg_<case>.npz`
 and the grouped `corrmat_dmrg.npz` as well as the moments archives.  It reads array headers only,
 so it costs about a second.
