@@ -63,12 +63,9 @@ prepared by imaginary-time TDVP.  The preparation dominates the cost (2 h+ at N=
 
 **Engines.**  Two-site TDVP is the reference engine.  The single-site *with subspace expansion*
 variant (`-engine onesite`) is numerically wrong (it oscillates and collapses); do not use it.
-Pure one-site TDVP at fixed `chi`, without the expansion, is fine.  `-engine krylov` builds the
-global Krylov space `{psi, H psi, ..., H^{m-1} psi}` as MPS, exponentiates the `m x m` projection
-exactly and truncates once; the step is exact to 1e-9 against ED on one mode, but at fixed `chi`
-it is 8-19x worse than TDVP and *worsens* as `chi` grows (67.29 % / 72.44 % against 8.26 % /
-3.76 % at `chi` = 16 / 32), so it is a validated reference implementation, not a production
-engine.
+Pure one-site TDVP at fixed `chi`, without the expansion, is fine.  A global Krylov engine was
+tried and removed (exact where nothing is truncated, 8-19x worse than TDVP at fixed `chi` and
+worsening with `chi`); `REJECTED.md` section 2 has the numbers.
 
 **Outputs.**  `source/dmrg.py` writes the per-case `corrmat_dmrg_<case>[_<tag>].npz` and, after a
 complete unsegmented `-case all` run, the grouped `corrmat_dmrg[_<tag>].npz` (one matrix per
@@ -108,7 +105,7 @@ tDMRG 7.58 % (6.94 % at `nmax=12`), MASH 17.16 %, FSSH 37.21 %.
 - **`dt` dominates.**  0.05 is 3.5x worse than 0.025 at `t <= 4` (26.70 % vs 7.58 %), while
   0.025 -> 0.0125 moves the score by 0.01 points (6.94 -> 6.93 % at `nmax=12`).  The improvement is
   per-step bond truncation, not integrator accuracy: on the exact state the exponential is exact to
-  round-off at `dt = 0.05` and the Krylov error is 2.1e-5 (`library/dmrg/integrator.py`).  A Cayley
+  round-off at `dt = 0.05` and the Krylov error is 2.1e-5 (`REJECTED.md` section 1).  A Cayley
   step composes to `exp(-i t H_eff)` with `H_eff = 2 atan(H dt/2)/dt`, which anharmonicises the bath;
   it is the right scheme for imaginary time only.
 - **`chi` is cheap**: 32 and 64 agree to 0.02 points at N=16, so 32 is enough there.  Raise `chi`
@@ -149,8 +146,7 @@ python library/dmrg/validation.py               # regression suite (ED for N <= 
 ```
 
 Validation criteria: `validation.py` reproduces exact diagonalization for N <= 3 to `~1e-2` (bare
-two-level, single harmonic mode, single quartic mode, chain multimode, Krylov and propagator
-checks), which shows the mapping and the observable algebra are sound; `check_bath.py` prints the
+two-level, single harmonic mode, single quartic mode and chain multimode checks), which shows the mapping and the observable algebra are sound; `check_bath.py` prints the
 static `<Q^2>` fraction and the relative error of `Re<Q(t)Q(0)>` against
 `sum_j c_j^2 (1/2) coth(beta w_j/2) cos(w_j t)`, which is where a bad thermal state shows up first.
 

@@ -60,7 +60,7 @@ def _parse_args():
     parser.add_argument("-geometry", choices = ["auto", "chain", "star"],
                         default = "auto",
                         help = "Bath geometry (auto: chain for quantum, star for classical)")
-    parser.add_argument("-engine", choices = ["twosite", "onesite", "krylov"],
+    parser.add_argument("-engine", choices = ["twosite", "onesite"],
                         default = "twosite",
                         help = "TDVP engine (onesite uses Krylov subspace expansion, ~3x faster)")
     parser.add_argument("-N", type = int, default = 20,
@@ -150,9 +150,7 @@ def main(source: str, quantum: bool = True, anharm: bool = False,
                                    nmax = nmax, chi = chi, dt = dt, t0 = t0,
                                    state = state or None,
                                    save_state = state or None,
-                                   n_jobs = n_jobs,
-                                   engine = (engine if engine in
-                                             ("twosite", "krylov") else "twosite"))
+                                   n_jobs = n_jobs, engine = engine)
 
     # 5. Save the per-case basis correlation matrix (the observables are its
     # contractions, rebuilt by the FIG scripts / dmrg_error.py).

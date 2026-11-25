@@ -43,12 +43,12 @@ All code is under `source/`, the working directory for the drivers (paths such a
   `a2 = 0` reduces it to the linear HEOM.
 - `source/library/dmrg/` — `chain.py` (star→Lanczos chain, two-site TDVP, thermofield-double bath),
   `model.py` (star MPS, coupling MPO, per-mode squeezed classical state), `tdmrg.py` (shared
-  observable extraction, the star path), `krylov.py` (global Krylov engine: exact on the projected
-  Krylov space, worse than TDVP at fixed `chi`), `integrator.py` (propagator comparison on the
-  exact state: exact exponential vs Krylov vs Cayley), `validation.py` (regression suite).
+  observable extraction, the star path), `validation.py` (regression suite).
   `model.py` takes `thermal_weights`, `thermal_variances` and `ladder_ops` from the synced
-  `qutils`; `integrator.py` takes `Pauli`, `ladder_ops` and `ohmic_modes`, and `validation.py`
-  `Pauli`, `basis`, `ladder_ops` and `qubit`.
+  `qutils`; `validation.py` takes `Pauli`, `basis`, `ladder_ops` and `qubit`.
+
+`REJECTED.md` at the root records the two propagator experiments (a Cayley step, a global
+Krylov engine) with their measurements; their code is in history at commit `53aae09`.
 - `source/environment.yaml`, `source/requirements.txt` — the `dmrg` conda environment.
 
 **Canonical archives** are `corrmat_<method>[_<label>].npz`.  The per-curve
@@ -173,7 +173,7 @@ Note the metric window: runs are made with `-t1 4` while the config `tf` is 12, 
 `dmrg_error.py` scores the overlap `[0, 4]` and warns; use `--windows 2 3 4` to score a long
 run on successive windows.
 
-**The propagator is not the limitation (measured; `library/dmrg/integrator.py`).**  On the exact
+**The propagator is not the limitation (measured; `REJECTED.md`, section 1).**  On the exact
 many-body state, with every stepped run ending at the same final time so that a perfect
 propagator must show no `dt` dependence:
 
@@ -191,13 +191,11 @@ dependence is therefore **bond truncation** per step, not integrator accuracy: `
 U(n dt)` for any propagator built from `H`, so a converged exponential cannot show a `dt` error
 at fixed output times.
 
-A **Cayley** (Crank-Nicolson) step is therefore not an alternative: it is exactly unitary but
-composes to `exp(-i t H_eff)` with `H_eff = 2 atan(H dt/2)/dt`
-(`validation.py::test_propagators`, 2e-13), which is *nonlinear* in the level index, i.e. it
-anharmonicises a harmonic bath instead of just shifting it.  Its `n = 1` shift at the fastest
-mode is 21 % at `dt = 0.05`, and matching Krylov needs ~6x smaller steps, each an iterative
-linear solve.  Cayley is the right scheme for **imaginary time** (`prepare_thermal`), where the
-propagator is not unitary and A-stability is what matters.
+A **Cayley** (Crank-Nicolson) step is therefore not an alternative: it composes to
+`exp(-i t H_eff)` with `H_eff = 2 atan(H dt/2)/dt`, which is *nonlinear* in the level index, i.e.
+it anharmonicises a harmonic bath instead of just shifting it (21 % on the fastest mode at
+`dt = 0.05`).  Cayley is the right scheme for **imaginary time** (`prepare_thermal`), where the
+propagator is not unitary and A-stability is what matters.  Details: `REJECTED.md`, section 1.
 
 **Geometry.**  Prefer the **star**: its thermal state is an exact product of per-mode TFDs, with
 no imaginary-time preparation (which dominated the chain runs at 2 h+).  The chain remains
@@ -284,34 +282,10 @@ the five observables.
 - **`engine`**: two-site TDVP is the reference engine.  The single-site + subspace-expansion
   variant (`-engine onesite`) is numerically wrong (it oscillates/collapses) — do not use it.
   (Pure one-site TDVP at fixed χ, without the expansion, is fine and is what the reference
-  protocol uses.)  `-engine krylov` builds the global Krylov space
-  `{psi, H psi, ..., H^{m-1} psi}` as MPS (`m = 10`), exponentiates the `m x m` projection
-  exactly and truncates once when forming the combination.  It is the vector-space analogue
-  of the exact moment expansion, it agrees with ED to 1e-9 (one mode) and with
-  TDVP to 6e-6 on the same model (`validation.py`) -- and it is **much worse than TDVP at fixed
-  chi, and does not improve with chi**.  Measured (qhm, star, N=16, nmax=8, `dt = 0.025`,
-  `t <= 2`):
-
-  | engine | chi = 16 | chi = 32 | chi = 64 |
-  |---|---:|---:|---:|
-  | two-site TDVP | 8.26 % | 3.76 % | **3.75 %** |
-  | global Krylov (`m = 8`) | 67.29 % | 72.44 % | -- |
-
-  Two facts matter.  TDVP converges cleanly in chi (8.26 -> 3.76 -> 3.75), so chi = 32 is
-  enough.  Krylov is 8-19x worse and gets *worse* as chi grows -- which contradicts the naive
-  "truncation multiplicity" explanation (that picture predicted convergence toward TDVP at
-  large chi).  What is left is the repeated compression itself: the Krylov vectors are
-  re-compressed at every matvec and addition, the Gram deviates from the identity
-  (`~1e-4` at chi = 16), and the generalised eigenvalue solve then produces a poor
-  combination; at chi = 16 the population collapses to 0.095 at `t = 2` (HEOM 0.415) with the
-  norm still 1, i.e. artificial relaxation.
-
-  So the conclusion is about **this construction**, not about the Krylov idea: a fair test
-  needs a work bond dimension (`chi_work >> chi_out`, truncate once at the end) or a
-  variational compression of the Krylov vectors, which is `~m` times the cost per step.  Until
-  that exists, use TDVP; the Krylov engine stays as a validated reference implementation of
-  the moment/CF analogy and as the regression that the global step is exact when nothing is
-  truncated.
+  protocol uses.)  A global Krylov engine was tried and removed: exact where nothing is
+  truncated, 8-19x worse than TDVP at fixed χ and worsening with χ.  `REJECTED.md` section 2.
+  TDVP converges cleanly in χ (8.26 -> 3.76 -> 3.75 % at χ = 16 -> 32 -> 64), so use two-site
+  TDVP and spend the cost there.
 - **Bath modes**: the discrete bath correlation recurs at `t ≈ 2πN/w_max`, so matching the continuum
   over `t ≤ 12` needs `N ≳ 80` (N=16 → t ≈ 2.5).  **uniform `nmax = 16`** (8 and 12 are not
   converged; the weight-based per-mode schedule is not valid, see above) and χ ≥ 32 are needed.  **`dt ≲ 0.025`** at χ = 64 (`0.05 -> 9.0 %`,
@@ -334,8 +308,7 @@ python dmrg_error.py --cases qhm --window 4       # Frobenius table -> output/dm
 python FIG0@corrmat.py                            # corrmat-dmrg@<prefix>.pdf
 python FIG4@robustness.py                         # dmrg@<prefix>.pdf
 python check_bath.py -N 16 -nmax 16 -chi 96       # bath correlator against the analytic curve
-python library/dmrg/validation.py                 # regression suite
-python library/dmrg/integrator.py                 # propagator study -> output/integrator_report.{json,md}
+python library/dmrg/validation.py                 # regression suite (4 tests)
 ```
 
 The flags above are the calibrated protocol; `python dmrg.py A-base_line` with no flags runs the
@@ -353,7 +326,7 @@ python check_bath.py                  # static <Q^2> fraction and the bath corre
 ```
 
 - `library/dmrg/validation.py` covers the bare two-level system, one harmonic mode, one quartic
-  mode, a chain multimode case, the Krylov engine and the propagators.  It reproduces exact
+  mode and a chain multimode case.  It reproduces exact
   diagonalization for N <= 3 to `~1e-2`, which is the evidence that the mapping and the observable
   algebra are right.
 - `check_bath.py` evolves the bath alone and prints the static `<Q^2>` fraction and the relative
