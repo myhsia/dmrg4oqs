@@ -35,9 +35,7 @@ from pltools import parse_xlims
 # 2. Run selection
 RUNLIST = [
     "A-base_line",
-    "B-slow_system",
     "C-no_bias",
-    "D-strong_tunneling",
     "E-fast_bath",
     "F-slow_bath",
     "G-lowT",
