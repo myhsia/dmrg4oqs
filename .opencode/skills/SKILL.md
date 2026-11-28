@@ -50,7 +50,7 @@ overlaps).  The five reported observables are contractions of `C`
 **Star geometry is the production choice.**  The bath modes are independent, so the thermal state
 is an exact product of per-mode thermofield doublets: no imaginary-time preparation, and the
 truncation error at fixed `nmax` is the only thermal-state error.  The Hamiltonian is
-`H_sys = epsilon*sz + Delta*sx` plus `V = sz` coupled to `Q = sum_j c_j q_j`, with each mode
+`H_sys = (epsilon/2)*sz + Delta*sx` plus `V = sz/2` coupled to `Q = sum_j c_j q_j`, with each mode
 harmonic (and quartic, in the anharmonic cases) on its own site.
 
 **The chain geometry remains available** (`-geometry chain`): the same modes are rotated to a
