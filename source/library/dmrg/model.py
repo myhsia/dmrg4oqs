@@ -10,11 +10,11 @@ that purifies the finite-temperature bath.  The auxiliary sites carry no
 Hamiltonian; tracing them out gives the physical density matrix, so
 ``<psi| A_sys |psi> = Tr[A rho]``.
 
-Hamiltonian (matching the project's ``nohalf=True`` convention)::
+Hamiltonian (the project's convention, matching ``context/figures/abstract.tex``)::
 
-    H = epsilon sigmaz + Delta sigmax
+    H = (epsilon/2) sigmaz + Delta sigmax
         + sum_j w_j (b_j^dag b_j + 1/2)
-        + sigmaz * sum_j c_j q_j
+        + (sigmaz/2) * sum_j c_j q_j
         + sum_j (a^2 w_j / 4) q_j^4,      q_j = (b_j + b_j^dag)/sqrt(2),
 
 where ``a^2`` is passed as ``anharm2`` (the quartic coefficient squared,
@@ -78,14 +78,14 @@ def build_model(epsilon, Delta, omega, c, anharm2 = 0.0, nmax = 6):
     sites = make_sites(omega, nmax)
     lat = Lattice([1], sites, bc_MPS = 'finite')
     M = CouplingModel(lat)
-    M.add_onsite_term(epsilon, 0, 'Sigmaz')
+    M.add_onsite_term(0.5 * epsilon, 0, 'Sigmaz')
     M.add_onsite_term(Delta,   0, 'Sigmax')
     for j in range(len(omega)):
         ip = _phys_idx(j)
         M.add_onsite_term(omega[j], ip, 'N')
         if anharm2:
             M.add_onsite_term(anharm2 * omega[j] / 4.0, ip, 'q4')
-        M.add_coupling_term(c[j], 0, ip, 'Sigmaz', 'q')
+        M.add_coupling_term(0.5 * c[j], 0, ip, 'Sigmaz', 'q')
     H = M.calc_H_MPO()
     model = MPOModel(lat, H)
     return lat, model, H

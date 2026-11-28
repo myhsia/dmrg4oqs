@@ -45,7 +45,7 @@ def exact_obs(epsilon, Delta, omega, c, beta, t, Nf = 20, anharm2 = 0.0):
             H += np.kron(np.eye(2),
                          (anharm2 * omega[j] / 4.0 * np.linalg.matrix_power(q, 4)).astype(complex))
     Q = sum(c[j] * qops[j] for j in range(n))
-    H += np.kron(epsilon * sz + Delta * sx, np.eye(dim)) + np.kron(sz, Q)
+    H += np.kron(0.5 * epsilon * sz + Delta * sx, np.eye(dim)) + np.kron(0.5 * sz, Q)
     pn = np.zeros(dim)
     for idx in range(dim):
         e = 0.0

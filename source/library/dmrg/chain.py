@@ -121,7 +121,7 @@ def build_models(epsilon, Delta, omega, c, nmax = 6, anharm2 = 0.0):
     lat, N = _make_lattice(Om, nmax)
 
     Mr = CouplingModel(lat)
-    Mr.add_onsite_term(epsilon, 0, 'Sigmaz')
+    Mr.add_onsite_term(0.5 * epsilon, 0, 'Sigmaz')
     Mr.add_onsite_term(Delta, 0, 'Sigmax')
     for k in range(N):
         Mr.add_onsite_term(Om[k], _phys(k), 'N')
@@ -129,7 +129,7 @@ def build_models(epsilon, Delta, omega, c, nmax = 6, anharm2 = 0.0):
             Mr.add_onsite_term(anharm2 * Om[k] / 4.0, _phys(k), 'q4')
     for k in range(N - 1):
         Mr.add_coupling_term(kappa[k], _phys(k), _phys(k + 1), 'q', 'q')
-    Mr.add_coupling_term(gc, 0, _phys(0), 'Sigmaz', 'q')
+    Mr.add_coupling_term(0.5 * gc, 0, _phys(0), 'Sigmaz', 'q')
     model_real = MPOModel(lat, Mr.calc_H_MPO())
 
     Mp = CouplingModel(lat)
